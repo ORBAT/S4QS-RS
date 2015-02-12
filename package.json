@@ -1,6 +1,6 @@
 {
   "name": "s4qs-rs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reads S3 object creation events from SQS and copies data to Redshift",
   "main": "index.js",
   "scripts": {
@@ -35,7 +35,6 @@
     "mocha-sinon": "1.x",
     "chai-as-promised": "4.x"
   },
-
   "config": {
     "blanket": {
       "pattern": "lib",
