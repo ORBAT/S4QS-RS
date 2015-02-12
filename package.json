@@ -42,7 +42,7 @@
       "data-cover-never": "node_modules"
     }
   },
-
+  "license": "MIT",
   "author": "Tom Eklöf <tome@unity3d.com>",
   "bugs": {
     "url": "https://github.com/ORBAT/S4QS-RS/issues"
