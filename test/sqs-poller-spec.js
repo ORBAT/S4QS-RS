@@ -74,7 +74,7 @@ describe("SQS poller", function() {
       return expect(p.pollPending).to.be.fulfilled;
     });
 
-    it("should not emit anything if no messages were received", function (done) {
+    it("should emit [] if no messages were received", function (done) {
       var p = newPoller()
         , rcvStub = this.sinon.stub(p, "_rcv")
         ;
@@ -86,13 +86,12 @@ describe("SQS poller", function() {
       p.repeatPoll = 2;
 
       p.on('messages', function (msgs) {
-        expect(msgs).to.deep.equal(sm.Messages);
-        done(new Error("NOPE NOPE NOPE NOPE"));
+        expect(msgs).to.deep.equal([]);
+        done();
       });
 
       p.poll();
 
-      expect(p.pollPending).to.notify(done);
     });
 
     it("should emit messages in one array despite multiple fetches", function (done) {
