@@ -111,3 +111,9 @@ would map `$RS_CONN` to `S3Copier.connStr`. Values set with environment variable
 
 ## Running S4QS-RS
 After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs`.
+
+S4QS-RS traps `SIGTERM` and `SIGINT` to make sure in-flight copies complete and the corresponding SQS messages are deleted. This may take several minutes depending on what you're copying, so don't be alarmed if nothing seems to happen.
+
+## Errata
+
+If you `require('s4qs-rs')`, you can use the two components of S4QS-RS, the S3 -> Redshift copier [`S3Copier`](lib/s3-to-rs.js) and the SQS poller [`Poller`](/lib/sqs-poller.js) separately from the command line tool. See the source code for the documentation, plus have a look at [app.js](app.js).
