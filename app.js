@@ -40,14 +40,13 @@ var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 var poller = new p.Poller(sqs, pollerOpts);
 
 var opts = config.get("S3Copier");
-debug("S3Copier opts " + inspect(opts));
+
 var credentials = aws.config.credentials;
 if(!credentials) {
   error("No credentials found?");
 }
 
 opts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
-debug("creds " + opts.copyParams.withParams.CREDENTIALS);
 
 var s3c = new S3Copier(poller, pg, opts.copyParams, _.omit(opts, 'copyParams'));
 
