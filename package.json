@@ -18,7 +18,7 @@
     "redshift"
   ],
   "dependencies": {
-    "aws-sdk": "2.1.7",
+    "aws-sdk": "2.x",
     "lodash": "3.x",
     "when": "3.x",
     "debug": "2.x",
