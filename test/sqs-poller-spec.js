@@ -68,8 +68,6 @@ describe("SQS poller", function() {
         ;
 
       this.sinon.stub(p, "_rcv").returns(when(sm.Messages));
-      this.sinon.stub(p, "_markSeen");
-      this.sinon.stub(p, "_dedup", when);
       p.poll();
       return expect(p.pollPending).to.be.fulfilled;
     });
@@ -79,9 +77,6 @@ describe("SQS poller", function() {
         , rcvStub = this.sinon.stub(p, "_rcv")
         ;
       rcvStub.returns([]);
-
-      this.sinon.stub(p, "_markSeen");
-      this.sinon.stub(p, "_dedup", when);
 
       p.repeatPoll = 2;
 
@@ -102,9 +97,6 @@ describe("SQS poller", function() {
       rcvStub.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
       rcvStub.onSecondCall().returns(when(sm.Messages.slice(10)));
 
-      this.sinon.stub(p, "_markSeen");
-      this.sinon.stub(p, "_dedup", when);
-
       p.repeatPoll = 2;
 
       p.on('messages', function (msgs) {
@@ -115,45 +107,6 @@ describe("SQS poller", function() {
       p.poll();
     });
 
-    it("should mark messages as seen", function () {
-      var sm = newSQSMsg(20)
-        , p = newPoller()
-        , rcv = this.sinon.stub(p, "_rcv")
-        , markSeen = this.sinon.stub(p, "_markSeen")
-        ;
-
-      rcv.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
-      rcv.onSecondCall().returns(when(sm.Messages.slice(10)));
-      this.sinon.stub(p, "_dedup", when);
-
-      p.repeatPoll = 2;
-      p.poll();
-
-      return p.pollPending.then(function() {
-        expect(markSeen).to.have.been.calledOnce;
-        expect(markSeen).to.have.been.calledWithExactly(sm.Messages);
-      });
-    });
-
-    it("should deduplicate after _rcv", function () {
-      var sm = newSQSMsg(20)
-        , p = newPoller()
-        , rcv = this.sinon.stub(p, "_rcv")
-        , dedup = this.sinon.stub(p, "_dedup", when)
-        ;
-
-      rcv.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
-      rcv.onSecondCall().returns(when(sm.Messages.slice(10)));
-
-      this.sinon.stub(p, "_markSeen");
-
-      p.repeatPoll = 2;
-      p.poll();
-      return p.pollPending.then(function() {
-        expect(dedup).to.have.been.calledOnce;
-        expect(dedup).to.have.been.calledWithExactly(sm.Messages);
-      });
-    });
 
     it("should do repeat _rcv calls", function () {
       var sm = newSQSMsg(20)
@@ -163,80 +116,12 @@ describe("SQS poller", function() {
       rcv.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
       rcv.onSecondCall().returns(when(sm.Messages.slice(10)));
 
-      this.sinon.stub(p, "_markSeen");
-      this.sinon.stub(p, "_dedup", when);
 
       p.repeatPoll = 2;
       p.poll();
       return p.pollPending.then(function() {
         expect(rcv).to.have.been.calledTwice;
       });
-    });
-  });
-
-  describe("_dedup", function () {
-    it("should delete duplicate messages", function () {
-      var sm = newSQSMsg(10)
-        , seen = sm.Messages.slice(0, 5)
-        , p = newPoller()
-        , deleteMsgs = this.sinon.stub(p, "deleteMsgs").returns(when())
-      ;
-      _.each(_.pluck(seen, 'MessageId'), function(mid) {
-        p.seenMsgs.set(mid, true);
-      });
-
-
-
-      return p._dedup(sm.Messages).then(function() {
-        expect(deleteMsgs).to.have.been.calledOnce;
-        expect(deleteMsgs.args[0][0]).to.deep.equal(seen);
-      });
-    });
-
-    it("should return a promise of an array of messages when no duplicates are found", function () {
-      var sm = newSQSMsg(10)
-        , p = newPoller()
-        ;
-      this.sinon.stub(p, "deleteMsgs").returns(when());
-      expect(p._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages);
-    });
-
-    it("should return a promise of an array of non-duplicate messages when deletion fails", function () {
-      var sm = newSQSMsg(10)
-        , seen = sm.Messages.slice(0, 5)
-        , p = newPoller()
-        ;
-      _.each(_.pluck(seen, 'MessageId'), function(mid) {
-        p.seenMsgs.set(mid, true);
-      });
-      this.sinon.stub(p, "deleteMsgs").returns(when.reject(new Error("uh oh")));
-
-      expect(p._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages.slice(5));
-    });
-
-    it("should return a promise of an array of non-duplicate messages when deletion succeeds", function () {
-      var sm = newSQSMsg(10)
-        , seen = sm.Messages.slice(0, 5)
-        , p = newPoller()
-        ;
-      _.each(_.pluck(seen, 'MessageId'), function(mid) {
-        p.seenMsgs.set(mid, true);
-      });
-      this.sinon.stub(p, "deleteMsgs").returns(when());
-
-      expect(p._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages.slice(5));
-    });
-  });
-
-  describe("_markSeen", function () {
-    it("should mark messages as seen", function () {
-      var sm = newSQSMsg(10)
-      , p = newPoller()
-      , spy =  this.sinon.spy(p.seenMsgs, "set")
-      ;
-      p._markSeen(sm.Messages);
-      var firstElem = ut.splat(ut.get('0'));
-      expect(firstElem(spy.args)).to.deep.equal(_.pluck(sm.Messages, 'MessageId'));
     });
   });
 
