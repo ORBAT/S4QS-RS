@@ -206,6 +206,29 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
+      it("Should deduplicate messages before copying", function () {
+        var c = newCopier(null, null, null)
+          , sm = newSQSMsg(20)
+          , seen = sm.Messages.slice(0,10)
+          , notSeen = sm.Messages.slice(10)
+          , dedup = this.sinon.spy(c, "_dedup")
+        ;
+
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
+        this.sinon.stub(c, "_connAndCopy", function(uri) {
+          return Promise.resolve(uri);
+        });
+
+        _.each(_.pluck(seen, "MessageId"), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+
+        c._onMsgs(sm);
+        return c._onMsgPending.then(function () {
+          expect(c._dedup).to.have.been.calledWithMatch(sm.Messages);
+        });
+      });
+
       it("should delete copied messages", function () {
         var c = newCopier(null, null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
