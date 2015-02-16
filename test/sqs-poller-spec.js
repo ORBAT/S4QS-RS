@@ -7,7 +7,7 @@ var tu = require('./test-utils');
 var _ = require('lodash');
 var chai = require('chai');
 var util = require('util');
-var when = require('when');
+var Promise = require('bluebird');
 require('mocha-sinon');
 var expect = chai.expect;
 var should = chai.should();
@@ -67,7 +67,7 @@ describe("SQS poller", function() {
         , p = newPoller()
         ;
 
-      this.sinon.stub(p, "_rcv").returns(when(sm.Messages));
+      this.sinon.stub(p, "_rcv").returns(Promise.resolve(sm.Messages));
       p.poll();
       return expect(p.pollPending).to.be.fulfilled;
     });
@@ -94,8 +94,8 @@ describe("SQS poller", function() {
         , p = newPoller()
         , rcvStub = this.sinon.stub(p, "_rcv")
         ;
-      rcvStub.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
-      rcvStub.onSecondCall().returns(when(sm.Messages.slice(10)));
+      rcvStub.onFirstCall().returns(Promise.resolve(sm.Messages.slice(0, 10)));
+      rcvStub.onSecondCall().returns(Promise.resolve(sm.Messages.slice(10)));
 
       p.repeatPoll = 2;
 
@@ -113,8 +113,8 @@ describe("SQS poller", function() {
         , p = newPoller()
         , rcv = this.sinon.stub(p, "_rcv")
         ;
-      rcv.onFirstCall().returns(when(sm.Messages.slice(0, 10)));
-      rcv.onSecondCall().returns(when(sm.Messages.slice(10)));
+      rcv.onFirstCall().returns(Promise.resolve(sm.Messages.slice(0, 10)));
+      rcv.onSecondCall().returns(Promise.resolve(sm.Messages.slice(10)));
 
 
       p.repeatPoll = 2;

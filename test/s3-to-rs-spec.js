@@ -7,7 +7,7 @@ var tu = require('./test-utils');
 var _ = require('lodash');
 var chai = require('chai');
 var util = require('util');
-var when = require('when');
+var Promise = require('bluebird');
 require('mocha-sinon');
 var expect = chai.expect;
 var should = chai.should();
@@ -81,9 +81,9 @@ describe("S3 to Redshift copier", function () {
     describe("_onMsgs", function () {
       it("should set _onMsgPending to a promise that is fulfilled after the function is done", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c, "_doDelete").returns(when());
+        this.sinon.stub(c, "_doDelete").returns(Promise.resolve());
         this.sinon.stub(c, "_connAndCopy", function(uri) {
-          return when(uri);
+          return Promise(uri);
         });
         c._onMsgs([]);
         return expect(c._onMsgPending).to.be.fulfilled;
@@ -92,10 +92,10 @@ describe("S3 to Redshift copier", function () {
       it("should schedule a new poll after completion", function () {
         this.sinon.useFakeTimers(10000);
         var c = newCopier(null, null, null);
-        this.sinon.stub(c, "_doDelete").returns(when());
+        this.sinon.stub(c, "_doDelete").returns(Promise.resolve());
         this.sinon.stub(c, "_schedulePoll");
         this.sinon.stub(c, "_connAndCopy", function(uri) {
-          return when(uri);
+          return Promise.resolve(uri);
         });
 
         c._onMsgs([]);
@@ -106,7 +106,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should not delete messages that failed to be copied", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when());
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
 
         // return a function that returns a rejected promise on the first call and a promise of its argument on all others
         function firstFn() {
@@ -114,9 +114,9 @@ describe("S3 to Redshift copier", function () {
           return function(uri) {
             if(first) {
               first = false;
-              return when.reject(new Error("yoink"));
+              return Promise.reject(new Error("yoink"));
             }
-            return when(uri);
+            return Promise.resolve(uri);
           };
         }
 
@@ -132,9 +132,9 @@ describe("S3 to Redshift copier", function () {
 
       it("should delete copied messages", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when());
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         this.sinon.stub(c, "_connAndCopy", function(uri) {
-          return when(uri);
+          return Promise.resolve(uri);
         });
 
         var ev = new tu.SQSMessage(10, "derr", "some.stuff.here/");
@@ -146,13 +146,20 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should call _connAndCopy for each message", function () {
-        var c = newCopier(null, null, null);
-        this.sinon.stub(c, "_doDelete").returns(when());
+        var c = newCopier(null, null, null)
+          , bukkit = "derr"
+          , prefix = "some.stuff.here/"
+          , re = new RegExp("s3://"+ bukkit + "/"+ prefix)
+        ;
+
+        this.sinon.stub(c, "_doDelete").returns(Promise.resolve());
         this.sinon.stub(c, "_connAndCopy", function(uri) {
-          return when(uri);
+          expect(uri).to.match(re);
+          return Promise.resolve(uri);
         });
 
-        var ev = new tu.SQSMessage(10, "derr", "some.stuff.here/");
+
+        var ev = new tu.SQSMessage(10, bukkit, prefix);
         var msgs = ev.Messages;
         c._onMsgs(msgs);
         return c._onMsgPending.then(function () {
@@ -168,7 +175,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should clear the _toDelete array on successful copy", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when());
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
         return c._doDelete().then(function () {
           expect(c._toDelete).to.have.length(0);
@@ -177,7 +184,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should not clear the _toDelete array on failed copy", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when.reject(new Error("HNNNGGGGH")));
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("HNNNGGGGH")));
         c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
         return c._doDelete().then(function () {
           expect(c._toDelete).to.have.length(10);
@@ -186,7 +193,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should call poller.deleteMsg", function (done) {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when());
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         var msgs = new tu.SQSMessage(10, "gler", "flor").Messages;
         c._toDelete = msgs;
         return expect(c._doDelete()).to.be.fulfilled.then(function () {
@@ -196,7 +203,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should not return a rejected promise on deletion error", function () {
         var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(when.reject(new Error("welp")));
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("welp")));
         c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
         return expect(c._doDelete()).to.be.fulfilled;
       });

@@ -20,7 +20,7 @@
   "dependencies": {
     "aws-sdk": "2.x",
     "lodash": "3.x",
-    "when": "3.x",
+    "bluebird": "2.x",
     "debug": "2.x",
     "lru-cache": "2.5.x",
     "pg": "4.x",
