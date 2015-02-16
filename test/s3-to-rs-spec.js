@@ -258,12 +258,12 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
-      it("should not clear the _toDelete array on failed copy", function () {
+      it("should clear the _toDelete array on failed copy", function () {
         var c = newCopier(null, null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("HNNNGGGGH")));
         c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
         return c._doDelete().then(function () {
-          expect(c._toDelete).to.have.length(10);
+          expect(c._toDelete).to.have.length(0);
         });
       });
 
