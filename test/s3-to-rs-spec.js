@@ -2,8 +2,9 @@
  * Created by teklof on 30.1.15.
  */
 var s3t = require('../lib/s3-to-rs');
-var sqsp = require('../lib/sqs-poller');
+var sp = require('../lib/sqs-poller');
 var tu = require('./test-utils');
+var ut = require('../lib/utils');
 var _ = require('lodash');
 var chai = require('chai');
 var util = require('util');
@@ -77,6 +78,81 @@ describe("S3 to Redshift copier", function () {
         , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb);
       return new s3t.S3Copier(fakePoller, fakePg, copyParams, {connStr: "postgres://bler", pollIntervalS: 60});
     }
+
+
+    function newSQSMsg(n) {
+      return new tu.SQSMessage(n, "bucket", "prefix/");
+    }
+
+    function newPoller(rcv, del) {
+      return new sp.Poller(new tu.FakeSQS(rcv, del));
+    }
+
+    describe("_dedup", function () {
+      it("should delete duplicate messages", function () {
+        var sm = newSQSMsg(10)
+          , seen = sm.Messages.slice(0, 5)
+          , c = newCopier(null, null, null)
+          , deleteMsgs = this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve())
+          ;
+        _.each(_.pluck(seen, 'MessageId'), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+
+
+
+        return c._dedup(sm.Messages).then(function() {
+          expect(deleteMsgs).to.have.been.calledOnce;
+          expect(deleteMsgs.args[0][0]).to.deep.equal(seen);
+        });
+      });
+
+      it("should return a promise of an array of messages when no duplicates are found", function () {
+        var sm = newSQSMsg(10)
+          , c = newCopier(null, null, null)
+          ;
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
+        expect(c._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages);
+      });
+
+      it("should return a promise of an array of non-duplicate messages when deletion fails", function () {
+        var sm = newSQSMsg(10)
+          , seen = sm.Messages.slice(0, 5)
+          , c = newCopier(null, null, null)
+          ;
+        _.each(_.pluck(seen, 'MessageId'), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("uh oh")));
+
+        expect(c._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages.slice(5));
+      });
+
+      it("should return a promise of an array of non-duplicate messages when deletion succeeds", function () {
+        var sm = newSQSMsg(10)
+          , seen = sm.Messages.slice(0, 5)
+          , c = newCopier(null, null, null)
+          ;
+        _.each(_.pluck(seen, 'MessageId'), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
+
+        expect(c._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages.slice(5));
+      });
+    });
+
+    describe("_markSeen", function () {
+      it("should mark messages as seen", function () {
+        var sm = newSQSMsg(10)
+          , p = newCopier(null, null, null)
+          , spy = this.sinon.spy(p._seenMsgs, "set")
+          ;
+        p._markSeen(sm.Messages);
+        var firstElem = ut.splat(ut.get('0'));
+        expect(firstElem(spy.args)).to.deep.equal(_.pluck(sm.Messages, 'MessageId'));
+      });
+    });
 
     describe("_onMsgs", function () {
       it("should set _onMsgPending to a promise that is fulfilled after the function is done", function () {

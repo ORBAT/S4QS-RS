@@ -48,6 +48,11 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   },
 
   "S3Copier": {
+    // LRU cache options. Used for message deduplication.
+    // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
+    "LRU": {
+      "max": 1000
+    },
       // Redshift connection string.
       // Required.
     "connStr": "postgres://username:password@example.com:5439/schema",
