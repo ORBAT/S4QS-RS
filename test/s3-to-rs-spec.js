@@ -206,7 +206,38 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
-      it("Should deduplicate messages before copying", function () {
+      it("Should only COPY deduped messages", function () {
+        var c = newCopier(null, null, null)
+          , sm = newSQSMsg(20)
+          , seen = sm.Messages.slice(0,10)
+          , notSeen = sm.Messages.slice(10)
+          , getUris = ut.splat(ut.send('s3URIs'))
+          , notSeenUris = _.flatten(getUris(_.pluck(notSeen, '_s3Event')))
+          , seenUris = _.flatten(getUris(_.pluck(seen, '_s3Event')))
+          , connAndCopy = this.sinon.stub(c, "_connAndCopy", Promise.resolve)
+          ;
+
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
+
+        _.each(_.pluck(seen, "MessageId"), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+
+        c._onMsgs(sm.Messages);
+        return c._onMsgPending.then(function () {
+          expect(connAndCopy).to.have.callCount(notSeen.length);
+
+          _.each(notSeenUris, function (uri) {
+            expect(connAndCopy).to.have.been.calledWithExactly(uri);
+          });
+
+          _.each(seenUris, function (uri) {
+            expect(connAndCopy).to.not.have.been.calledWithExactly(uri);
+          });
+        });
+      });
+
+      it("Should call _dedup before copying", function () {
         var c = newCopier(null, null, null)
           , sm = newSQSMsg(20)
           , seen = sm.Messages.slice(0,10)
@@ -223,9 +254,11 @@ describe("S3 to Redshift copier", function () {
           c._seenMsgs.set(mid, true);
         });
 
-        c._onMsgs(sm);
+        c._onMsgs(sm.Messages);
         return c._onMsgPending.then(function () {
-          expect(c._dedup).to.have.been.calledWithMatch(sm.Messages);
+          expect(dedup).to.have.been.calledOnce;
+//          console.error("args", inspect(dedup.args[0]));
+          expect(dedup).to.have.been.calledWithMatch(sm.Messages);
         });
       });
 
