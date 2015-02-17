@@ -146,3 +146,12 @@ FakeSQS.prototype.receiveMessage = function receiveMessage() {
 FakeSQS.prototype.deleteMessageBatch = function deleteMessageBatch() {
   return new FakeAWSReq(this.del.event, this.del.content);
 };
+
+var FakeS3 = exports.FakeS3 = function FakeS3(eventName, content) {
+  this.eventName = eventName;
+  this.content = content;
+};
+
+FakeS3.prototype.putObject = function putObject(params) {
+  return new FakeAWSReq(this.eventName, this.content);
+};
