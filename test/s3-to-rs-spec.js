@@ -296,7 +296,7 @@ describe("S3 to Redshift copier", function () {
         c._onMsgs(msgs);
         return c._onMsgPending.then(function () {
           expect(c._connAndCopy).to.have.callCount(msgs.length);
-          _.each(ev.s3URIs, function (uri) {
+          _.each(ev.s3URIs(), function (uri) {
             expect(c._connAndCopy).to.have.been.calledWithExactly(uri);
           });
         });
