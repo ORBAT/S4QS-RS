@@ -47,7 +47,7 @@ describe("Manifest uploader", function () {
     it("should add an array of URIs", function () {
       var m = new mup.Manifest(true);
       m.push("uri0");
-      expect(m.addAll(["uri1","uri2", "uri3"])).to.equal(3);
+      expect(m.addAll(["uri1","uri2", "uri3"])).to.equal(4);
       expect(m.uris).to.deep.equal(["uri0", "uri1", "uri2", "uri3"]);
     });
 
