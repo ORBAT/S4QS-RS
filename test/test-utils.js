@@ -131,7 +131,6 @@ var FakeAWSReq = exports.FakeAWSReq = function FakeAWSReq(eventName, content) {
 util.inherits(FakeAWSReq, EventEmitter);
 
 FakeAWSReq.prototype.send = function send() {
-  console.error("FakeAWSReq send");
   setImmediate(this.emit.bind(this, this.eventName, this.content));
 };
 
