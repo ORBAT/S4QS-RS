@@ -131,6 +131,7 @@ var FakeAWSReq = exports.FakeAWSReq = function FakeAWSReq(eventName, content) {
 util.inherits(FakeAWSReq, EventEmitter);
 
 FakeAWSReq.prototype.send = function send() {
+  console.error("FakeAWSReq send");
   setImmediate(this.emit.bind(this, this.eventName, this.content));
 };
 
@@ -147,11 +148,15 @@ FakeSQS.prototype.deleteMessageBatch = function deleteMessageBatch() {
   return new FakeAWSReq(this.del.event, this.del.content);
 };
 
-var FakeS3 = exports.FakeS3 = function FakeS3(eventName, content) {
-  this.eventName = eventName;
-  this.content = content;
+var FakeS3 = exports.FakeS3 = function FakeS3(put, del) {
+  this.put = put || {};
+  this.del = del || {};
 };
 
 FakeS3.prototype.putObject = function putObject(params) {
-  return new FakeAWSReq(this.eventName, this.content);
+  return new FakeAWSReq(this.put.eventName, this.put.content);
+};
+
+FakeS3.prototype.deleteObject = function deleteObject(params) {
+  return new FakeAWSReq(this.del.eventName, this.del.content);
 };

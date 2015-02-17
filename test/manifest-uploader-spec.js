@@ -14,16 +14,19 @@ var should = chai.should();
 
 describe("Manifest uploader", function () {
 
-  var bucket = "bukkit"
-    , prefix = "my-prefix/"
+  var manifBucket = "bukkit"
+    , manifPrefix = "my-prefix/"
   ;
 
-  function newManifest(mandatory, n) {
+  function newManifest(mandatory, n, put, del) {
+    var s3 = new tu.FakeS3(put, del)
+      , manifest = new mup.Manifest(!!mandatory, manifBucket, manifPrefix, s3)
+      ;
 
-    var manifest = new mup.Manifest(mandatory);
+    n = n || 0;
 
     manifest.addAll(_.times(n, function () {
-      return "s3://" + bucket + "/" + prefix + tu.randomString(8) + ".txt";
+      return "s3://some-bucket/" + tu.randomString(8) + ".txt";
     }));
 
     return  manifest;
@@ -31,6 +34,37 @@ describe("Manifest uploader", function () {
 
 
   describe("Manifest object", function () {
+
+    describe("deleteManifest", function () {
+
+      it("should give itself a well-formed URI", function () {
+        var m = newManifest()
+          , re = new RegExp("s3://"+ manifBucket + "/"+ manifPrefix + ".*?\\.json")
+          ;
+        console.error("manifestURI", m.manifestURI);
+        expect(m.manifestURI).to.match(re);
+      });
+
+      it("should return a promise of the S3 URI of the deleted manifest", function () {
+        var m = newManifest(true, 1, null, {eventName: "success", data: "yay"})
+          , deleteObject = this.sinon.spy(m._s3, "deleteObject")
+          ;
+
+        return expect(m.delete()).to.eventually.equal(m.manifestURI);
+      });
+
+      it("should call S3's deleteObject", function () {
+        var m = newManifest(true, 1, null, {eventName: "success", data: "yay"})
+          , deleteObject = this.sinon.spy(m._s3, "deleteObject")
+        ;
+
+        return expect(m.delete()).to.be.fulfilled.then(function () {
+          expect(deleteObject).to.have.been.calledOnce;
+          expect(deleteObject).to.have.been.calledWithMatch({Bucket: manifBucket, Key: m._prefix});
+        });
+      });
+    });
+
     it("should return correct length", function () {
       var m = new mup.Manifest(true);
       m.push("uri1");
