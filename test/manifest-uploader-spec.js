@@ -39,17 +39,55 @@ describe("Manifest uploader", function () {
       var m = newManifest()
         , re = new RegExp("s3://"+ manifBucket + "/"+ manifPrefix + ".*?\\.json")
         ;
-      console.error("manifestURI", m.manifestURI);
       expect(m.manifestURI).to.match(re);
     });
 
+    describe("_upload", function () {
+
+      it("should return a rejected promise if PUT fails", function () {
+        var m = newManifest(true, 1, {eventName: "error", content: new Error("eurgh")}, null)
+          ;
+        return expect(m._upload()).to.be.rejectedWith("eurgh");
+      });
+
+      it("should call S3's putObject", function () {
+        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null)
+          , putObject = this.sinon.spy(m._s3, "putObject")
+          , json = m.toJSON()
+          ;
+
+        return expect(m._upload()).to.be.fulfilled.then(function () {
+          expect(putObject).to.have.been.calledOnce;
+          var arg = putObject.firstCall.args[0];
+//          expect(putObject).to.have.been.calledWithMatch({Bucket: manifBucket, Key: m._key});
+          expect(arg.Bucket).to.equal(manifBucket);
+          expect(arg.Key).to.equal(m._key);
+          expect(arg.ContentType).to.equal("application/json");
+          expect(JSON.parse(arg.Body)).to.deep.equal(json);
+        });
+      });
+
+      it("should return a promise of the Manifest", function () {
+        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null)
+          ;
+
+        return expect(m._upload()).to.be.fulfilled.and.eventually.deep.equal(m);
+      });
+    });
+
     describe("deleteManifest", function () {
+
+      it("should return a rejected promise if deletion fails", function () {
+        var m = newManifest(true, 1, null, {eventName: "error", content: new Error("eurgh")})
+          ;
+        return expect(m.delete()).to.be.rejectedWith("eurgh");
+      });
 
       it("should return a promise of the S3 URI of the deleted manifest", function () {
         var m = newManifest(true, 1, null, {eventName: "success", content: "yay"})
           ;
 
-        return expect(m.delete()).to.eventually.equal(m.manifestURI);
+        return expect(m.delete()).to.be.fulfilled.and.eventually.equal(m.manifestURI);
       });
 
       it("should call S3's deleteObject", function () {
