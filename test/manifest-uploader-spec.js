@@ -66,6 +66,17 @@ describe("Manifest uploading", function () {
         bucket: manifBucket, prefix: manifPrefix});
     }
 
+    it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
+      clock = this.sinon.useFakeTimers();
+      var up = newUploader(20,1000)
+        , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
+        ;
+      up.start();
+      up.addMessages(newSQSMsg(10).Messages);
+      clock.tick(1000);
+      expect(_uploadCurrent).to.have.been.calledOnce;
+    });
+
     describe("addMessage", function () {
 
       it("should call _uploadCurrent once URI count has been reached", function () {
