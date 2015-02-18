@@ -64,13 +64,6 @@ describe("Manifest uploading", function () {
     return  manifest;
   }
 
-  describe("Grouper", function () {
-    it("dsadasdasjkladfsl", function () {
-      var msg = newSQSMsg(1).Messages[0];
-      console.error("", msg);
-    });
-  });
-
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
       return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitTime: mwt,
