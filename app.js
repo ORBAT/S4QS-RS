@@ -35,6 +35,8 @@ debug("Started with env " + process.env.NODE_ENV);
 
 var sqs = new aws.SQS({region: config.get('SQS.region'), params: config.get('SQS.params')});
 
+var s3 = new aws.S3(config.get("S3Copier.S3"));
+
 var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 
 var poller = new p.Poller(sqs, pollerOpts);
@@ -48,7 +50,7 @@ if(!credentials) {
 
 opts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 
-var s3c = new S3Copier(poller, pg, opts.copyParams, _.omit(opts, 'copyParams'));
+var s3c = new S3Copier(poller, pg, opts.copyParams, _.omit(opts, ["copyParams", "S3"]));
 
 
 function cleanup(sig) {
