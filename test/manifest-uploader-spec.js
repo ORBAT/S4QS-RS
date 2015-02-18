@@ -25,7 +25,7 @@ describe("Manifest uploader", function () {
 
     n = n || 0;
 
-    manifest.addAll(_.times(n, function () {
+    manifest._addAll(_.times(n, function () {
       return "s3://some-bucket/" + tu.randomString(8) + ".txt";
     }));
 
@@ -67,28 +67,28 @@ describe("Manifest uploader", function () {
 
     it("should return correct length", function () {
       var m = new mup.Manifest(true);
-      m.push("uri1");
-      m.push("uri2");
+      m._push("uri1");
+      m._push("uri2");
       expect(m.length).to.equal(2);
     });
 
-    it("should push new URIs", function () {
+    it("should _push new URIs", function () {
       var m = new mup.Manifest(true);
-      expect(m.push("uri1")).to.equal(1);
+      expect(m._push("uri1")).to.equal(1);
       expect(m.uris).to.deep.equal(["uri1"]);
     });
 
     it("should add an array of URIs", function () {
       var m = new mup.Manifest(true);
-      m.push("uri0");
-      expect(m.addAll(["uri1","uri2", "uri3"])).to.equal(4);
+      m._push("uri0");
+      expect(m._addAll(["uri1","uri2", "uri3"])).to.equal(4);
       expect(m.uris).to.deep.equal(["uri0", "uri1", "uri2", "uri3"]);
     });
 
     it("should generate correct-looking JSON", function () {
       var m = new mup.Manifest(true);
-      m.push("uri1");
-      m.push("uri2");
+      m._push("uri1");
+      m._push("uri2");
       expect(m.toJSON()).to.deep.equal({entries: [{url: "uri1", mandatory: true}, {url: "uri2", mandatory: true}]})
     });
 
