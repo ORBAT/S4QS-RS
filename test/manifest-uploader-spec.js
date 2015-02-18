@@ -46,15 +46,14 @@ describe("Manifest uploader", function () {
     describe("deleteManifest", function () {
 
       it("should return a promise of the S3 URI of the deleted manifest", function () {
-        var m = newManifest(true, 1, null, {eventName: "success", data: "yay"})
-          , deleteObject = this.sinon.spy(m._s3, "deleteObject")
+        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"})
           ;
 
         return expect(m.delete()).to.eventually.equal(m.manifestURI);
       });
 
       it("should call S3's deleteObject", function () {
-        var m = newManifest(true, 1, null, {eventName: "success", data: "yay"})
+        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"})
           , deleteObject = this.sinon.spy(m._s3, "deleteObject")
         ;
 
