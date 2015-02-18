@@ -537,26 +537,4 @@ describe("S3 to Redshift copier", function () {
     });
   });
 
-  describe("_eventToS3URIs", function () {
-
-    it("Should return an empty array when S3 schema version doesn't match", function () {
-      event.Records[0].s3.s3SchemaVersion = "3.0";
-      expect(s3t._eventToS3URIs(event)).to.deep.equal([]);
-    });
-
-    it("Should return an empty array when event version doesn't match", function () {
-      event.Records[0].eventVersion = "3.0";
-      expect(s3t._eventToS3URIs(event)).to.deep.equal([]);
-    });
-
-    it("Should return an empty array when no records are found", function () {
-      expect(s3t._eventToS3URIs({Records: []})).to.deep.equal([]);
-    });
-
-    it("Should convert S3 events to S3 URIs", function () {
-      var uris = s3t._eventToS3URIs(event);
-      var wanted = "s3://some-bucket-name/someprefix/some.stuff.here/2015-01-30/some.stuff.here-p-9-2015-01-30-0044120221.txt.gz";
-      expect(uris[0]).to.equal(wanted);
-    });
-  });
 });
