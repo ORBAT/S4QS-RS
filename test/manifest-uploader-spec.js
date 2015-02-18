@@ -3,6 +3,7 @@
  */
 
 
+var s3u = require('../lib/s3-to-rs');
 var ut = require('../lib/utils');
 var mup = require('../lib/manifest-uploader');
 var tu = require('./test-utils');
@@ -38,17 +39,19 @@ describe("Manifest uploading", function () {
     }
   });
 
-  var manifBucket = "bukkit"
-    , manifPrefix = "my-prefix/"
+  var manifBucket = "manif-bukkit"
+    , manifPrefix = "manif-prefix/"
+    , msgPrefix = "msg-prefix/"
+    , grouper = s3u._tableStrToNamer("/s3://.*?/(.*?)/i")
   ;
 
-  function newSQSMsg(n) {
-    return new tu.SQSMessage(n, "other-bukkit", "other-prefix/");
+  function newSQSMsg(n, prefix) {
+    return new tu.SQSMessage(n, "msg-bukkit", prefix || msgPrefix);
   }
 
-  function newManifest(mandatory, n, put, del) {
+  function newManifest(mandatory, n, put, del, table) {
     var s3 = new tu.FakeS3(put, del)
-      , manifest = new mup.Manifest(!!mandatory, manifBucket, manifPrefix, s3)
+      , manifest = new mup.Manifest(!!mandatory, manifBucket, manifPrefix, s3, table)
       ;
 
     n = n || 0;
@@ -61,7 +64,7 @@ describe("Manifest uploading", function () {
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
       return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitTime: mwt,
-        bucket: manifBucket, prefix: manifPrefix});
+        bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
 
     it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
@@ -158,13 +161,13 @@ describe("Manifest uploading", function () {
     describe("_upload", function () {
 
       it("should return a rejected promise if PUT fails", function () {
-        var m = newManifest(true, 1, {eventName: "error", content: new Error("eurgh")}, null)
+        var m = newManifest(true, 1, {eventName: "error", content: new Error("eurgh")}, null, "some_table")
           ;
         return expect(m._upload()).to.be.rejectedWith("eurgh");
       });
 
       it("should call S3's putObject", function () {
-        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null)
+        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null, "some_table")
           , putObject = this.sinon.spy(m._s3, "putObject")
           , json = m.toJSON()
           ;
@@ -180,7 +183,7 @@ describe("Manifest uploading", function () {
       });
 
       it("should return a promise of the Manifest", function () {
-        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null)
+        var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null, "some_table")
           ;
 
         return expect(m._upload()).to.be.fulfilled.and.eventually.deep.equal(m);
@@ -190,20 +193,20 @@ describe("Manifest uploading", function () {
     describe("deleteManifest", function () {
 
       it("should return a rejected promise if deletion fails", function () {
-        var m = newManifest(true, 1, null, {eventName: "error", content: new Error("eurgh")})
+        var m = newManifest(true, 1, null, {eventName: "error", content: new Error("eurgh")}, "some_table")
           ;
         return expect(m.delete()).to.be.rejectedWith("eurgh");
       });
 
       it("should return a promise of the S3 URI of the deleted manifest", function () {
-        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"})
+        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"}, "some_table")
           ;
 
         return expect(m.delete()).to.be.fulfilled.and.eventually.equal(m.manifestURI);
       });
 
       it("should call S3's deleteObject", function () {
-        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"})
+        var m = newManifest(true, 1, null, {eventName: "success", content: "yay"}, "some_table")
           , deleteObject = this.sinon.spy(m._s3, "deleteObject")
         ;
 
