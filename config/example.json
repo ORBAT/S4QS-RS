@@ -30,6 +30,14 @@
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
+      // AWS S3 constructor options.
+      // Required.
+      "S3": {
+        "region": "us-west-2",
+        "params": {
+          "ACL": "bucket-owner-full-control"
+        }
+      },
       // Minimum number of URIs to have in each manifest (see maxWaitTime)
       // Required.
       "minToUpload": 16,

@@ -50,7 +50,14 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   },
 
   "S3Copier": {
-
+    // AWS S3 constructor options.
+    // Required.
+    "S3": {
+      "region": "us-west-2",
+      "params": {
+        "ACL": "bucket-owner-full-control"
+      }
+    },
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
