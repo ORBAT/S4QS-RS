@@ -60,7 +60,7 @@ describe("Manifest uploader", function () {
 
         return expect(m.delete()).to.be.fulfilled.then(function () {
           expect(deleteObject).to.have.been.calledOnce;
-          expect(deleteObject).to.have.been.calledWithMatch({Bucket: manifBucket, Key: m._prefix});
+          expect(deleteObject).to.have.been.calledWithMatch({Bucket: manifBucket, Key: m._key});
         });
       });
     });
