@@ -42,7 +42,7 @@ describe("Manifest uploading", function () {
   var manifBucket = "manif-bukkit"
     , manifPrefix = "manif-prefix/"
     , msgPrefix = "msg-prefix/"
-    , grouper = s3u._tableStrToNamer("/s3://.*?/(.*?)/i")
+    , grouper = s3u._tableStrToNamer("/s3:\/\/.*?\/(.*?)\//i")
   ;
 
   function newSQSMsg(n, prefix) {
@@ -70,7 +70,7 @@ describe("Manifest uploading", function () {
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
 
-    it.skip("should periodically upload manifests even if minToUpload hasn't been reached", function () {
+    it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
       clock = this.sinon.useFakeTimers();
       var up = newUploader(20,1000)
         , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
@@ -79,6 +79,32 @@ describe("Manifest uploading", function () {
       up.addMessages(newSQSMsg(10).Messages);
       clock.tick(1000);
       expect(_uploadCurrent).to.have.been.calledOnce;
+    });
+
+    describe("addMessages", function () {
+
+      it("should upload a group once it has the required amount of items", function () {
+        var up = newUploader(20,1)
+          , t1msgs = newSQSMsg(3, "table1/").Messages
+          , t2msgs = newSQSMsg(25, "table2/").Messages
+          , msgs = t1msgs.concat(t2msgs)
+          , _uploadGroup = this.sinon.stub(up, "_uploadGroup")
+          ;
+        up.addMessages(msgs);
+        expect(_uploadGroup).to.have.been.calledOnce;
+        expect(_uploadGroup).to.have.been.calledWithMatch("table2");
+      });
+
+      it("should group messages by their corresponding table name", function () {
+        var up = newUploader(20,1)
+          , t1msgs = newSQSMsg(3, "table1/").Messages
+          , t2msgs = newSQSMsg(3, "table2/").Messages
+          , msgs = t1msgs.concat(t2msgs)
+        ;
+        up.addMessages(msgs);
+        expect(up._manifestGroups["table1"].msgs).to.deep.equal(t1msgs);
+        expect(up._manifestGroups["table2"].msgs).to.deep.equal(t2msgs);
+      });
     });
 
     describe.skip("addMessage", function () {
