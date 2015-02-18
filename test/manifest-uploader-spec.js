@@ -35,15 +35,15 @@ describe("Manifest uploader", function () {
 
   describe("Manifest object", function () {
 
-    describe("deleteManifest", function () {
+    it("should give itself a well-formed URI", function () {
+      var m = newManifest()
+        , re = new RegExp("s3://"+ manifBucket + "/"+ manifPrefix + ".*?\\.json")
+        ;
+      console.error("manifestURI", m.manifestURI);
+      expect(m.manifestURI).to.match(re);
+    });
 
-      it("should give itself a well-formed URI", function () {
-        var m = newManifest()
-          , re = new RegExp("s3://"+ manifBucket + "/"+ manifPrefix + ".*?\\.json")
-          ;
-        console.error("manifestURI", m.manifestURI);
-        expect(m.manifestURI).to.match(re);
-      });
+    describe("deleteManifest", function () {
 
       it("should return a promise of the S3 URI of the deleted manifest", function () {
         var m = newManifest(true, 1, null, {eventName: "success", data: "yay"})
