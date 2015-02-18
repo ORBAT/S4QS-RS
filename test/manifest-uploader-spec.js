@@ -81,6 +81,75 @@ describe("Manifest uploading", function () {
       expect(_uploadCurrent).to.have.been.calledOnce;
     });
 
+    describe("_uploadGroup", function () {
+
+      it("should upload emit 'error' on failed upload", function (done) {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          , error = new Error("not today you don't")
+          ;
+
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"]
+          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.reject(error))
+          ;
+
+        up.on('error', function (err, mf) {
+          expect(mf).to.deep.equal(manif);
+          expect(err).to.deep.equal(error);
+          done();
+        });
+        up._uploadGroup("table2");
+      });
+
+      it("should upload emit 'manifest' on successful upload", function (done) {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          ;
+
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"]
+          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.resolve(manif))
+          ;
+
+        up.on('manifest', function (mf) {
+          expect(mf).to.deep.equal(manif);
+          done();
+        });
+        up._uploadGroup("table2");
+      });
+
+      it("should upload manifests", function () {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          ;
+
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"]
+          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.resolve(manif))
+          ;
+
+        up._uploadGroup("table2");
+
+        expect(manifUpl).to.have.been.calledOnce;
+      });
+
+      it("should create a new manifest before staring an upload", function () {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          ;
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"];
+
+        up._uploadGroup("table2");
+        expect(up._manifestGroups["table2"]).to.not.deep.equal(manif);
+      });
+    });
+
     describe("addMessages", function () {
 
       it("should upload a group once it has the required amount of items", function () {
