@@ -74,11 +74,11 @@ describe("S3 to Redshift copier", function () {
       };
 
     function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event) {
+      s3Event = s3Event || {}
       var fakePoller = new tu.FakePoller("derr/some.stuff.here")
         , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb)
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
         ;
-      s3Event = s3Event || {}
       var options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
         "minToUpload": 10,
         "maxWaitTime": 300000,
