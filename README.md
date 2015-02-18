@@ -1,5 +1,7 @@
 # S4QS-RS
-S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY.
+S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY. S4QS-RS gathers files
+into S3 manifests, which are then used for the COPY. See Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
+documentation for more information.
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
@@ -48,6 +50,27 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   },
 
   "S3Copier": {
+
+    // Manifest uploader options.
+    // Required.
+    "manifestUploader": {
+      // Minimum number of URIs to have in each manifest (see maxWaitTime)
+      // Required.
+      "minToUpload": 16,
+      // Upload manifest at intervals of maxWaitTime milliseconds, regardless of the amount of messages in them.
+      // Required.
+      "maxWaitTime": 300000,
+      // Value of "mandatory" property of manifest items.
+      // Required.
+      "mandatory": true,
+      // Bucket to upload manifests to.
+      // Required.
+      "bucket": "manifest-bucket",
+      // Prefix for manifest keys.
+      // Required.
+      "prefix": "some-prefix/"
+    },
+
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
     "LRU": {

@@ -27,6 +27,26 @@
   },
 
   "S3Copier": {
+    // Manifest uploader options.
+    // Required.
+    "manifestUploader": {
+      // Minimum number of URIs to have in each manifest (see maxWaitTime)
+      // Required.
+      "minToUpload": 16,
+      // Upload manifest at intervals of maxWaitTime milliseconds, regardless of amount of messages in them.
+      // Required.
+      "maxWaitTime": 300000,
+      // Value of "mandatory" property of manifest items.
+      // Required.
+      "mandatory": true,
+      // Bucket to upload manifests to.
+      // Required.
+      "bucket": "manifest-bucket",
+      // Prefix for manifest keys.
+      // Required.
+      "prefix": "some-prefix/"
+    },
+
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
     "LRU": {
