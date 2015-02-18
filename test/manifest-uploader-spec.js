@@ -51,7 +51,10 @@ describe("Manifest uploading", function () {
 
   function newManifest(mandatory, n, put, del, table) {
     var s3 = new tu.FakeS3(put, del)
-      , manifest = new mup.Manifest(!!mandatory, manifBucket, manifPrefix, s3, table)
+      , manifest = new mup.Manifest(s3, {mandatory:!!mandatory,
+        bucket: manifBucket,
+        prefix:manifPrefix,
+        table:table})
       ;
 
     n = n || 0;
@@ -61,13 +64,20 @@ describe("Manifest uploading", function () {
     return  manifest;
   }
 
+  describe("Grouper", function () {
+    it("dsadasdasjkladfsl", function () {
+      var msg = newSQSMsg(1).Messages[0];
+      console.error("", msg);
+    });
+  });
+
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
       return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitTime: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
 
-    it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
+    it.skip("should periodically upload manifests even if minToUpload hasn't been reached", function () {
       clock = this.sinon.useFakeTimers();
       var up = newUploader(20,1000)
         , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
@@ -78,7 +88,7 @@ describe("Manifest uploading", function () {
       expect(_uploadCurrent).to.have.been.calledOnce;
     });
 
-    describe("addMessage", function () {
+    describe.skip("addMessage", function () {
 
       it("should call _uploadCurrent once URI count has been reached", function () {
         var up = newUploader(20,1)
@@ -96,7 +106,7 @@ describe("Manifest uploading", function () {
       });
     });
 
-    describe("_uploadCurrent", function() {
+    describe.skip("_uploadCurrent", function() {
 
       it("should change _currentManifest immediately", function () {
         var up = newUploader(20,1)
@@ -218,7 +228,7 @@ describe("Manifest uploading", function () {
     });
 
     it("should return correct length", function () {
-      var m = new mup.Manifest(true)
+      var m = new mup.Manifest(null, {mandatory:true})
         , msgs = newSQSMsg(2).Messages
         ;
       m._push(msgs[0]);
@@ -227,7 +237,7 @@ describe("Manifest uploading", function () {
     });
 
     it("should _push new SQS messages", function () {
-      var m = new mup.Manifest(true)
+      var m = new mup.Manifest(null, {mandatory:true})
         , msg = newSQSMsg(1).Messages[0]
         ;
 
@@ -236,7 +246,7 @@ describe("Manifest uploading", function () {
     });
 
     it("should return an array of SQS messages", function () {
-      var m = new mup.Manifest(true)
+      var m = new mup.Manifest(null, {mandatory:true})
         , msgs = newSQSMsg(5).Messages
       ;
       m._addAll(msgs);
@@ -245,17 +255,17 @@ describe("Manifest uploading", function () {
     });
 
     it("should add an array of SQS messages", function () {
-      var m = new mup.Manifest(true)
+      var m = new mup.Manifest(null, {mandatory:true})
         , msgs = newSQSMsg(5).Messages
         ;
       m._push(msgs[0]);
       expect(m._addAll(msgs.slice(1))).to.equal(5);
 
-      expect(m.uris).to.deep.equal(mup._toUris(msgs));
+      expect(m.uris).to.deep.equal(mup._messagesToURIs(msgs));
     });
 
     it("should generate correct-looking JSON", function () {
-      var m = new mup.Manifest(true)
+      var m = new mup.Manifest(null, {mandatory:true})
         , msgs = newSQSMsg(2).Messages
       ;
       m._addAll(msgs);
@@ -267,7 +277,7 @@ describe("Manifest uploading", function () {
   describe("toUris", function () {
     it("Should turn SQS messages to URIs", function () {
       var msgs = newSQSMsg(2).Messages.concat([null, ""])
-        , uris = mup._toUris(msgs)
+        , uris = mup._messagesToURIs(msgs)
         , uri1 = msgs[0]._s3Event.s3URIs()[0]
         , uri2 = msgs[1]._s3Event.s3URIs()[0]
         ;

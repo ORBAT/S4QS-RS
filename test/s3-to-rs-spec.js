@@ -95,10 +95,6 @@ describe("S3 to Redshift copier", function () {
       return new tu.SQSMessage(n, "bucket", "prefix/");
     }
 
-    function newPoller(rcv, del) {
-      return new sp.Poller(new tu.FakeSQS(rcv, del));
-    }
-
     describe("_dedup", function () {
       it("should delete duplicate messages", function () {
         var sm = newSQSMsg(10)
@@ -165,7 +161,7 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
-    describe("_onMsgs", function () {
+    describe.skip("_onMsgs", function () {
       it("should set _onMsgPending to a promise that is fulfilled after the function is done", function () {
         var c = newCopier(null, null, null);
         this.sinon.stub(c, "_doDelete").returns(Promise.resolve());
