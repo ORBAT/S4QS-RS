@@ -73,10 +73,21 @@ describe("S3 to Redshift copier", function () {
         ]
       };
 
-    function newCopier(pgConnErr, pgQueryErr, pgDoneCb) {
+    function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event) {
       var fakePoller = new tu.FakePoller("derr/some.stuff.here")
-        , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb);
-      return new s3t.S3Copier(fakePoller, fakePg, copyParams, {connStr: "postgres://bler", pollIntervalS: 60});
+        , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb)
+        , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
+        ;
+      s3Event = s3Event || {}
+      var options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
+        "minToUpload": 10,
+        "maxWaitTime": 300000,
+        "mandatory": true,
+        "bucket": "manifest-bukkit",
+        "prefix": "manifest-prefix/"
+      }};
+
+      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, copyParams, options);
     }
 
 
