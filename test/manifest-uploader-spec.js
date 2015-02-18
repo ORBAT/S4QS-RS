@@ -16,7 +16,27 @@ var should = chai.should();
 
 var inspect = _.partialRight(util.inspect, {depth: 3});
 
-describe("Manifest uploader", function () {
+function defer() {
+  var resolver, rejecter;
+
+  var p = new Promise(function (resolve, reject) {
+    resolver = resolve;
+    rejecter = reject;
+  });
+
+  return {reject: rejecter, resolve: resolver, promise: p};
+}
+
+describe("Manifest uploading", function () {
+
+  var clock;
+
+  afterEach(function () {
+    if (clock) {
+      clock.restore();
+      clock = null;
+    }
+  });
 
   var manifBucket = "bukkit"
     , manifPrefix = "my-prefix/"
@@ -39,6 +59,82 @@ describe("Manifest uploader", function () {
 
     return  manifest;
   }
+
+  describe("Uploader", function () {
+    function newUploader(minUp, mwt, put, del) {
+      return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitTime: mwt,
+        bucket: manifBucket, prefix: manifPrefix});
+    }
+
+    describe("addMessage", function () {
+
+      it("should call _uploadCurrent once URI count has been reached", function () {
+        var up = newUploader(20,1)
+          , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
+          ;
+        up.addMessages(newSQSMsg(20).Messages);
+        expect(_uploadCurrent).to.have.been.calledOnce;
+      });
+
+      it("should add messages to current manifest", function () {
+        var up = newUploader(20,1)
+          ;
+        up.addMessages(newSQSMsg(10).Messages);
+        expect(up._currentManifest.length).to.equal(10);
+      });
+    });
+
+    describe("_uploadCurrent", function() {
+
+      it("should change _currentManifest immediately", function () {
+        var up = newUploader(20,1)
+          , firstManif = up._currentManifest
+          , upload = this.sinon.stub(firstManif, "_upload").returns(Promise.resolve(firstManif))
+          ;
+
+        up.addMessages(newSQSMsg(10).Messages);
+
+        expect(firstManif).to.have.length(10);
+
+        up._uploadCurrent();
+
+        expect(up._currentManifest).to.not.deep.equal(firstManif);
+      });
+
+      it("should emit 'manifest' on successful upload", function (done) {
+        var up = newUploader(20,1)
+          , manif = up._currentManifest
+          , upload = this.sinon.stub(manif, "_upload").returns(Promise.resolve(manif))
+          ;
+
+        up.addMessages(newSQSMsg(10).Messages);
+        up.on('manifest', function (mf) {
+          expect(mf).to.deep.equal(manif);
+          expect(upload).to.have.been.calledOnce;
+          done();
+        });
+
+        up._uploadCurrent();
+      });
+
+      it("should emit 'error' on failed upload", function (done) {
+        var up = newUploader(20,1)
+          , manif = up._currentManifest
+          , error = new Error("not today you don't")
+          , upload = this.sinon.stub(manif, "_upload").returns(Promise.reject(error))
+          ;
+        up.addMessages(newSQSMsg(10).Messages);
+        up.on('error', function (err) {
+          expect(err).to.deep.equal(error);
+          expect(upload).to.have.been.calledOnce;
+          done();
+        });
+
+        up._uploadCurrent();
+      });
+
+    })
+  });
 
 
   describe("Manifest object", function () {
