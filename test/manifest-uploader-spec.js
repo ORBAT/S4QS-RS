@@ -53,9 +53,7 @@ describe("Manifest uploading", function () {
 
     n = n || 0;
 
-    manifest._addAll(_.times(n, function () {
-      return "s3://some-bucket/" + tu.randomString(8) + ".txt";
-    }));
+    manifest._addAll(newSQSMsg(n).Messages);
 
     return  manifest;
   }
