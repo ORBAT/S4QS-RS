@@ -12,8 +12,8 @@ var S3Copier = s3rs.S3Copier;
 var pg = require('pg');
 var _ = require('lodash');
 var config = require('config');
-var debug = require('debug')('s4qs-app');
-var error = require('debug')('s4qs-app:error');
+var debug = require('debug')('s4qs-rs:s4qs-app');
+var error = require('debug')('s4qs-rs:s4qs-app:error');
 
 error.log = console.error;
 

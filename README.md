@@ -128,7 +128,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 ```
 
 ## Environment variables
-S4QS-RS uses the [debug NPM package](npmjs.org/package/debug) for outputting debug messages to stdout and error messages to stderr. To see **any** error messages, you **must** run S4QS-RS with the env `DEBUG=*:error`. To see debug messages, run with `DEBUG=s3-to-rs*,sqs-poller*,s4qs-app*` (or a combination thereof.) See debug's documentation for more information.
+S4QS-RS uses the [debug NPM package](npmjs.org/package/debug) for outputting debug messages to stdout and error messages to stderr. To see **any** error messages, you **must** run S4QS-RS with the env `DEBUG=s4qs-rs:*:error`. To see debug messages, run with `DEBUG=s4qs-rs:*` See debug's documentation for more information.
 
 You can [map environment variables to configuration parameters](https://github.com/lorenwest/node-config/wiki/Environment-Variables#custom-environment-variables) by creating a file with the name `./config/custom-environment-variables.json`. For example
 
