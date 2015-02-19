@@ -3,6 +3,7 @@
  */
 var s3t = require('../lib/s3-to-rs');
 var sp = require('../lib/sqs-poller');
+var mup = require('../lib/manifest-uploader');
 var tu = require('./test-utils');
 var ut = require('../lib/utils');
 var _ = require('lodash');
@@ -17,6 +18,17 @@ chai.use(require("chai-as-promised"));
 chai.use(require('sinon-chai'));
 
 var inspect = _.partialRight(util.inspect, {depth: 10});
+
+function defer() {
+  var resolver, rejecter;
+
+  var p = new Promise(function (resolve, reject) {
+    resolver = resolve;
+    rejecter = reject;
+  });
+
+  return {reject: rejecter, resolve: resolver, promise: p};
+}
 
 describe("S3 to Redshift copier", function () {
 
@@ -170,6 +182,100 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
+    describe("_onManifest", function () {
+
+      function newManifest(mandatory, n, put, del, table) {
+        var s3 = new tu.FakeS3(put, del)
+          , manifest = new mup.Manifest(s3, {mandatory:!!mandatory,
+            bucket: "manif-bucket",
+            prefix: "manif-prefix/",
+            table:table})
+          ;
+
+        n = n || 0;
+
+        manifest._addAll(newSQSMsg(n).Messages);
+
+        return  manifest;
+      }
+
+      it("should not join fulfilled manifest promises", function () {
+        var c = newCopier(null, null, null)
+          , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
+          , mf = newManifest(true, 10, null, null, "table1")
+          , mf2 = newManifest(true, 10, null, null, "table1")
+          , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
+          , mf2Delete =  this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI))
+          , _connAndCopy = this.sinon.stub(c, "_connAndCopy")
+          , def = defer()
+          , def2 = defer()
+          ;
+
+
+        _connAndCopy.onCall(0).returns(def.promise);
+        _connAndCopy.onCall(1).returns(def2.promise);
+        _connAndCopy.returns(Promise.resolve());
+
+        c._onManifest(mf);
+        def.resolve(mf.manifestURI);
+
+        return Promise.props(c._manifestsPending).then(function () {
+          c._onManifest(mf2);
+          return c._manifestsPending;
+        }).then(function(pend) {
+            expect(pend["table1"]).to.not.be.instanceOf(Array);
+        });
+      });
+
+      it("should join pending manifest promises", function () {
+        var c = newCopier(null, null, null)
+          , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
+          , mf = newManifest(true, 10, null, null, "table1")
+          , mf2 = newManifest(true, 10, null, null, "table1")
+          , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
+          , mf2Delete =  this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI))
+          , _connAndCopy = this.sinon.stub(c, "_connAndCopy")
+          , def = defer()
+          , def2 = defer()
+          ;
+
+
+        _connAndCopy.onCall(0).returns(def.promise);
+        _connAndCopy.onCall(1).returns(def2.promise);
+        _connAndCopy.returns(Promise.resolve());
+
+        c._onManifest(mf);
+        c._onManifest(mf2);
+
+        def.resolve(mf.manifestURI);
+        setTimeout(def2.resolve.bind(def2, mf2.manifestURI), 100);
+
+        return Promise.props(c._manifestsPending).then(function (pend) {
+          expect(pend["table1"]).to.be.instanceOf(Array);
+          expect(_connAndCopy).to.have.been.calledTwice;
+          expect(_delete).to.have.been.calledTwice;
+          expect(mfDelete).to.have.been.calledOnce;
+          expect(mf2Delete).to.have.been.calledOnce;
+        });
+      });
+
+      it("should set _manifestsPending", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+        ;
+
+        this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(c, "_delete").returns(Promise.resolve());
+        this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+
+        c._onManifest(mf);
+        return Promise.props(c._manifestsPending).then(function () {
+          expect(c._manifestsPending["table1"].isResolved()).to.be.true;
+          expect(_.keys(c._manifestsPending)).to.deep.equal(["table1"]);
+        });
+      });
+    });
+
     describe("_onMsgs", function () {
       it("should only give deduplicated messages to the uploader", function () {
         var c = newCopier(null, null, null)
@@ -177,10 +283,7 @@ describe("S3 to Redshift copier", function () {
           , sm = newSQSMsg(20).Messages
           , seen = sm.slice(0,10)
           , notSeen = sm.slice(10)
-          , getUris = ut.splat(ut.send('s3URIs'))
-          , notSeenUris = _.flatten(getUris(_.pluck(notSeen, '_s3Event')))
-          , seenUris = _.flatten(getUris(_.pluck(seen, '_s3Event')))
-          , addMessages = this.sinon.stub(c._uploader, "addMessages");
+          , addMessages = this.sinon.stub(c._uploader, "addMessages")
           ;
 
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
@@ -194,6 +297,7 @@ describe("S3 to Redshift copier", function () {
           expect(addMessages).to.not.have.been.calledWithMatch(seen);
         });
       });
+
       it("should should schedule a new poll", function () {
         clock = this.sinon.useFakeTimers(1000);
         var c = newCopier(null, null, null)
