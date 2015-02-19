@@ -81,6 +81,32 @@ describe("Manifest uploading", function () {
       expect(_uploadCurrent).to.have.been.calledOnce;
     });
 
+    describe("_uploadCurrent", function () {
+      it("should upload all current non-empty manifests", function (done) {
+        var up = newUploader(20,1, {eventName: "success", content: {data: "dsead"}})
+          , t2msgs = newSQSMsg(10, "table2/").Messages
+          , t3msgs = newSQSMsg(10, "table3/").Messages
+          , msgs = t2msgs.concat(t3msgs)
+          ;
+
+        up.addMessages(msgs);
+        up._newManifest("table1");
+        this.sinon.spy(up._manifestGroups["table1"], "_upload");
+        var count = 0;
+        up.on('manifest', function(mf) {
+          console.error("manifest");
+          expect(mf.table).to.match(/table2|table3/);
+          count++;
+          if(count == 1) {
+            expect(up._manifestGroups["table1"]._upload).to.not.have.been.called;
+            done()
+          }
+        });
+
+        up._uploadCurrent();
+      });
+    });
+
     describe("_uploadGroup", function () {
 
       it("should upload emit 'error' on failed upload", function (done) {
@@ -175,75 +201,6 @@ describe("Manifest uploading", function () {
         expect(up._manifestGroups["table2"].msgs).to.deep.equal(t2msgs);
       });
     });
-
-    describe.skip("addMessage", function () {
-
-      it("should call _uploadCurrent once URI count has been reached", function () {
-        var up = newUploader(20,1)
-          , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
-          ;
-        up.addMessages(newSQSMsg(20).Messages);
-        expect(_uploadCurrent).to.have.been.calledOnce;
-      });
-
-      it("should add messages to current manifest", function () {
-        var up = newUploader(20,1)
-          ;
-        up.addMessages(newSQSMsg(10).Messages);
-        expect(up._currentManifest.length).to.equal(10);
-      });
-    });
-
-    describe.skip("_uploadCurrent", function() {
-
-      it("should change _currentManifest immediately", function () {
-        var up = newUploader(20,1)
-          , firstManif = up._currentManifest
-          , upload = this.sinon.stub(firstManif, "_upload").returns(Promise.resolve(firstManif))
-          ;
-
-        up.addMessages(newSQSMsg(10).Messages);
-
-        expect(firstManif).to.have.length(10);
-
-        up._uploadCurrent();
-
-        expect(up._currentManifest).to.not.deep.equal(firstManif);
-      });
-
-      it("should emit 'manifest' on successful upload", function (done) {
-        var up = newUploader(20,1)
-          , manif = up._currentManifest
-          , upload = this.sinon.stub(manif, "_upload").returns(Promise.resolve(manif))
-          ;
-
-        up.addMessages(newSQSMsg(10).Messages);
-        up.on('manifest', function (mf) {
-          expect(mf).to.deep.equal(manif);
-          expect(upload).to.have.been.calledOnce;
-          done();
-        });
-
-        up._uploadCurrent();
-      });
-
-      it("should emit 'error' on failed upload", function (done) {
-        var up = newUploader(20,1)
-          , manif = up._currentManifest
-          , error = new Error("not today you don't")
-          , upload = this.sinon.stub(manif, "_upload").returns(Promise.reject(error))
-          ;
-        up.addMessages(newSQSMsg(10).Messages);
-        up.on('error', function (err) {
-          expect(err).to.deep.equal(error);
-          expect(upload).to.have.been.calledOnce;
-          done();
-        });
-
-        up._uploadCurrent();
-      });
-
-    })
   });
 
 
