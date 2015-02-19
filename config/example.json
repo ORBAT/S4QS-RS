@@ -1,19 +1,15 @@
 {
   // S4QS-RS will start a HTTP server at this port, with the route /check
   // which returns the string OK. Omit to disable.
-  "HTTPPort": 30117,
+  "HTTPPort": 9999,
+  // SQS poller options. 
+  // Optional.
   "SQS": {
-    // SQS poller options. 
-    // Optional.
     "poller": {
       // repeat the poll this many times when fetching new messages from SQS.
       // Optional, defaults to 1.
       "repeatPoll": 5
     },
-
-    // how often to poll for new messages from SQS.
-    // Required.
-    "pollIntervalSeconds": 30,
     // SQS region.
     // Required.
     "region": "us-east-1",
@@ -27,23 +23,22 @@
   },
 
   "S3Copier": {
+    // AWS S3 constructor options.
+    // Required. ACL must be defined here, other parameters are optional.
+    "S3": {
+      "params": {
+        "ACL": "bucket-owner-full-control"
+      }
+    },
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
-      // AWS S3 constructor options.
+      // Minimum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
-      "S3": {
-        "region": "us-west-2",
-        "params": {
-          "ACL": "bucket-owner-full-control"
-        }
-      },
-      // Minimum number of URIs to have in each manifest (see maxWaitTime)
+      "minToUpload": 25,
+      // Upload manifest at intervals of maxWaitSeconds seconds, regardless of amount of messages in them.
       // Required.
-      "minToUpload": 16,
-      // Upload manifest at intervals of maxWaitTime milliseconds, regardless of amount of messages in them.
-      // Required.
-      "maxWaitTime": 300000,
+      "maxWaitSeconds": 600,
       // Value of "mandatory" property of manifest items.
       // Required.
       "mandatory": true,
@@ -52,9 +47,8 @@
       "bucket": "manifest-bucket",
       // Prefix for manifest keys.
       // Required.
-      "prefix": "some-prefix/"
+      "prefix": "s4qs/manifests/"
     },
-
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
     "LRU": {
@@ -63,12 +57,16 @@
     // Redshift connection string.
     // Required.
     "connStr": "postgres://username:password@example.com:5439/schema",
-
+    // how often to poll for new messages from SQS.
+    // Required.
+    "pollIntervalSeconds": 300,
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
     "tablePostfix": "_devel",
 
+    // parameters for Redshift's COPY query.
+    // Required.
     "copyParams": {
       /* 
        the "table" property is used to set the Redshift table name. This can be either a string

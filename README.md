@@ -24,36 +24,31 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 {
   // S4QS-RS will start a HTTP server at this port, with the route /check
   // which returns the string OK. Omit to disable.
-  "HTTPPort": 30117,
+  "HTTPPort": 9999,
+  // SQS poller options. 
+  // Optional.
   "SQS": {
-    // SQS poller options. 
-    // Optional.
     "poller": {
       // repeat the poll this many times when fetching new messages from SQS.
       // Optional, defaults to 1.
       "repeatPoll": 5
     },
-
-    // how often to poll for new messages from SQS.
+    // SQS region.
     // Required.
-    "pollIntervalSeconds": 30,
-     // SQS region.
-     // Required.
     "region": "us-east-1",
     // parameters to pass to SQS. See http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html.
     // Required.
     "params": {
       "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/some-queue-name",
-      "WaitTimeSeconds": 20, 
+      "WaitTimeSeconds": 20,
       "MaxNumberOfMessages": 10
     }
   },
 
   "S3Copier": {
     // AWS S3 constructor options.
-    // Required.
+    // Required. ACL must be defined here, other parameters are optional.
     "S3": {
-      "region": "us-west-2",
       "params": {
         "ACL": "bucket-owner-full-control"
       }
@@ -61,12 +56,12 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
-      // Minimum number of URIs to have in each manifest (see maxWaitTime)
+      // Minimum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
-      "minToUpload": 16,
-      // Upload manifest at intervals of maxWaitTime milliseconds, regardless of the amount of messages in them.
+      "minToUpload": 25,
+      // Upload manifest at intervals of maxWaitSeconds seconds, regardless of amount of messages in them.
       // Required.
-      "maxWaitTime": 300000,
+      "maxWaitSeconds": 600,
       // Value of "mandatory" property of manifest items.
       // Required.
       "mandatory": true,
@@ -75,38 +70,41 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       "bucket": "manifest-bucket",
       // Prefix for manifest keys.
       // Required.
-      "prefix": "some-prefix/"
+      "prefix": "s4qs/manifests/"
     },
-
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
     "LRU": {
       "max": 1000
     },
-      // Redshift connection string.
-      // Required.
+    // Redshift connection string.
+    // Required.
     "connStr": "postgres://username:password@example.com:5439/schema",
-    
+    // how often to poll for new messages from SQS.
+    // Required.
+    "pollIntervalSeconds": 300,
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
     "tablePostfix": "_devel",
 
+    // parameters for Redshift's COPY query.
+    // Required.
     "copyParams": {
       /* 
-        the "table" property is used to set the Redshift table name. This can be either a string
-        like "my_table_name" or a regular expression (which must start and end with a /).
-        When using a regex, periods are converted to underscores but that's it.
-        Feed S4QS-RS weird URIs and weird stuff will probably happen. You have been warned.
-        
-        The example regex and tablePostfix combination would turn an URI like
-        s3://bucketname/whatevs/this.will.be.the.table.name/qwerasdf.csv.gz
-        to this_will_be_the_table_name_devel.
+       the "table" property is used to set the Redshift table name. This can be either a string
+       like "my_table_name" or a regular expression (which must start and end with a /).
+       When using a regex, periods are converted to underscores but that's it.
+       Feed S4QS-RS weird URIs and weird stuff will probably happen. You have been warned.
 
-        If you use Javascript configuration files, you can specify a function
-        for "table". The function must take an S3 URI and output a valid
-        Redshift table name.
-      */
+       The example regex and tablePostfix combination would turn an URI like
+       s3://bucketname/whatevs/this.will.be.the.table.name/qwerasdf.csv.gz
+       to this_will_be_the_table_name_devel.
+
+       If you use Javascript configuration files, you can specify a function
+       for "table". The function must take an S3 URI and output a valid
+       Redshift table name.
+       */
       "table": "/s3:\/\/.*?\/whatevs\/(.*?)\//i",
       // parameterless arguments to COPY. See http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html.
       // Optional.
@@ -145,10 +143,10 @@ You can [map environment variables to configuration parameters](https://github.c
 would map `$RS_CONN` to `S3Copier.connStr`. Values set with environment variables always override configuration file values.
 
 ## Running S4QS-RS
-After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs`.
+After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs` or `DEBUG=sq4s-rs:* s4qs-rs` to see debugging information.
 
-S4QS-RS traps `SIGTERM` and `SIGINT` to make sure in-flight copies complete and the corresponding SQS messages are deleted. This may take several minutes depending on what you're copying, so don't be alarmed if nothing seems to happen.
+S4QS-RS traps `SIGTERM` and `SIGINT` to make sure in-flight copies complete and the corresponding SQS messages and S3 manifests are deleted. This may take several minutes depending on what you're copying, so don't be alarmed if nothing seems to happen.
 
 ## Errata
 
-If you `require('s4qs-rs')`, you can use the two components of S4QS-RS, the S3 -> Redshift copier [`S3Copier`](lib/s3-to-rs.js) and the SQS poller [`Poller`](/lib/sqs-poller.js) separately from the command line tool. See the source code for the documentation, plus have a look at [app.js](app.js).
+If you `require('s4qs-rs')`, you can use the different components of S4QS-RS separately from the command line tool. See the source code for the documentation, plus have a look at [app.js](app.js).
