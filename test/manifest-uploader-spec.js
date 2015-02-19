@@ -66,13 +66,13 @@ describe("Manifest uploading", function () {
 
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
-      return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitTime: mwt,
+      return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitSeconds: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
 
     it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
       clock = this.sinon.useFakeTimers();
-      var up = newUploader(20,1000)
+      var up = newUploader(20,1)
         , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
         ;
       up.start();

@@ -81,7 +81,7 @@ describe("S3 to Redshift copier", function () {
         ;
       var options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
         "minToUpload": 10,
-        "maxWaitTime": 300000,
+        "maxWaitSeconds": 300,
         "mandatory": true,
         "bucket": "manifest-bukkit",
         "prefix": "manifest-prefix/"
