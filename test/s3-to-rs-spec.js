@@ -20,6 +20,15 @@ var inspect = _.partialRight(util.inspect, {depth: 10});
 
 describe("S3 to Redshift copier", function () {
 
+  var clock;
+
+  afterEach(function () {
+    if (clock) {
+      clock.restore();
+      clock = null;
+    }
+  });
+
   var event;
 
   beforeEach(function () {
@@ -161,6 +170,55 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
+    describe("_onMsgs", function () {
+      it("should should deduplicate messages", function () {
+        var c = newCopier(null, null, null)
+          , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
+          , sm = newSQSMsg(20).Messages
+          , seen = sm.slice(0,10)
+          , notSeen = sm.slice(10)
+          , getUris = ut.splat(ut.send('s3URIs'))
+          , notSeenUris = _.flatten(getUris(_.pluck(notSeen, '_s3Event')))
+          , seenUris = _.flatten(getUris(_.pluck(seen, '_s3Event')))
+          ;
+
+        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
+        this.sinon.stub(c._uploader, "addMessages");
+
+        _.each(_.pluck(seen, "MessageId"), function(mid) {
+          c._seenMsgs.set(mid, true);
+        });
+
+        return c._onMsgs(sm).then(function() {
+          return Promise.reject(new Error("dsajkldas"));
+        });
+      });
+      it("should should schedule a new poll", function () {
+        clock = this.sinon.useFakeTimers(1000);
+        var c = newCopier(null, null, null)
+          , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
+          , msgs = newSQSMsg(10).Messages
+          ;
+
+        this.sinon.stub(c._uploader, "addMessages");
+        this.sinon.stub(c, "_dedup", Promise.resolve);
+
+        return c._onMsgs(msgs).then(function() {
+          expect(_schedulePoll).to.have.been.calledWithExactly(1000 + c._pollIntervalS * 1000);
+        });
+      });
+
+      it("should give received messages to the manifest uploader", function () {
+        var c = newCopier(null, null, null)
+          , addMessages = this.sinon.stub(c._uploader, "addMessages")
+          , msgs = newSQSMsg(10).Messages
+        ;
+
+        c._onMsgs(msgs);
+        expect(addMessages).to.have.been.calledWithMatch(msgs);
+      });
+    });
+
     describe.skip("_onMsgs", function () {
       it("should set _onMsgPending to a promise that is fulfilled after the function is done", function () {
         var c = newCopier(null, null, null);
@@ -173,7 +231,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should schedule a new poll after completion", function () {
-        this.sinon.useFakeTimers(10000);
+        clock = this.sinon.useFakeTimers(10000);
         var c = newCopier(null, null, null);
         this.sinon.stub(c, "_doDelete").returns(Promise.resolve());
         this.sinon.stub(c, "_schedulePoll");
