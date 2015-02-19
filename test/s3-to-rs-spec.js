@@ -204,27 +204,20 @@ describe("S3 to Redshift copier", function () {
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
           , mf = newManifest(true, 10, null, null, "table1")
           , mf2 = newManifest(true, 10, null, null, "table1")
-          , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
-          , mf2Delete =  this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI))
-          , _connAndCopy = this.sinon.stub(c, "_connAndCopy")
-          , def = defer()
-          , def2 = defer()
+          , _connAndCopy = this.sinon.stub(c, "_connAndCopy", Promise.resolve)
           ;
 
-
-        _connAndCopy.onCall(0).returns(def.promise);
-        _connAndCopy.onCall(1).returns(def2.promise);
-        _connAndCopy.returns(Promise.resolve());
+        this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI));
 
         c._onManifest(mf);
-        def.resolve(mf.manifestURI);
 
         return Promise.props(c._manifestsPending).then(function () {
           c._onManifest(mf2);
           return c._manifestsPending;
         }).then(function(pend) {
             expect(pend["table1"]).to.not.be.instanceOf(Array);
-        });
+          });
       });
 
       it("should join pending manifest promises", function () {
