@@ -245,7 +245,7 @@ describe("Manifest uploading", function () {
       });
     });
 
-    describe("deleteManifest", function () {
+    describe("delete", function () {
 
       it("should return a rejected promise if deletion fails", function () {
         var m = newManifest(true, 1, null, {eventName: "error", content: new Error("eurgh")}, "some_table")

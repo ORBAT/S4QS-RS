@@ -171,7 +171,7 @@ describe("S3 to Redshift copier", function () {
     });
 
     describe("_onMsgs", function () {
-      it("should should deduplicate messages", function () {
+      it("should only give deduplicated messages to the uploader", function () {
         var c = newCopier(null, null, null)
           , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
           , sm = newSQSMsg(20).Messages
@@ -180,17 +180,18 @@ describe("S3 to Redshift copier", function () {
           , getUris = ut.splat(ut.send('s3URIs'))
           , notSeenUris = _.flatten(getUris(_.pluck(notSeen, '_s3Event')))
           , seenUris = _.flatten(getUris(_.pluck(seen, '_s3Event')))
+          , addMessages = this.sinon.stub(c._uploader, "addMessages");
           ;
 
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
-        this.sinon.stub(c._uploader, "addMessages");
 
         _.each(_.pluck(seen, "MessageId"), function(mid) {
           c._seenMsgs.set(mid, true);
         });
 
         return c._onMsgs(sm).then(function() {
-          return Promise.reject(new Error("dsajkldas"));
+          expect(addMessages).to.have.been.calledWithMatch(notSeen);
+          expect(addMessages).to.not.have.been.calledWithMatch(seen);
         });
       });
       it("should should schedule a new poll", function () {
@@ -211,11 +212,14 @@ describe("S3 to Redshift copier", function () {
       it("should give received messages to the manifest uploader", function () {
         var c = newCopier(null, null, null)
           , addMessages = this.sinon.stub(c._uploader, "addMessages")
-          , msgs = newSQSMsg(10).Messages
+          , msgs = newSQSMsg(5).Messages
         ;
 
-        c._onMsgs(msgs);
-        expect(addMessages).to.have.been.calledWithMatch(msgs);
+        this.sinon.stub(c, "_dedup", Promise.resolve);
+
+        return c._onMsgs(msgs).then(function() {
+          expect(addMessages).to.have.been.calledWithMatch(msgs);
+        });
       });
     });
 
@@ -368,41 +372,20 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
-    describe("_doDelete", function () {
-
-      it("should clear the _toDelete array on successful copy", function () {
-        var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
-        c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
-        return c._doDelete().then(function () {
-          expect(c._toDelete).to.have.length(0);
-        });
-      });
-
-      it("should clear the _toDelete array on failed copy", function () {
-        var c = newCopier(null, null, null);
-        this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("HNNNGGGGH")));
-        c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
-        return c._doDelete().then(function () {
-          expect(c._toDelete).to.have.length(0);
-        });
-      });
-
-      it("should call poller.deleteMsg", function (done) {
+    describe("_delete", function () {
+      it("should call poller.deleteMsg", function () {
         var c = newCopier(null, null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         var msgs = new tu.SQSMessage(10, "gler", "flor").Messages;
-        c._toDelete = msgs;
-        return expect(c._doDelete()).to.be.fulfilled.then(function () {
+        return expect(c._delete(msgs)).to.be.fulfilled.then(function () {
           expect(c._poller.deleteMsgs).to.have.been.calledOnce.and.calledWithMatch(msgs);
-        }).should.notify(done);
+        });
       });
 
       it("should not return a rejected promise on deletion error", function () {
         var c = newCopier(null, null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("welp")));
-        c._toDelete = new tu.SQSMessage(10, "gler", "flor").Messages;
-        return expect(c._doDelete()).to.be.fulfilled;
+        return expect(c._doDelete(new tu.SQSMessage(10, "gler", "flor").Messages)).to.be.fulfilled;
       });
     });
 
@@ -410,7 +393,7 @@ describe("S3 to Redshift copier", function () {
       it("should return a promise of the S3 URI on successful copy", function () {
         var doneCb = this.sinon.spy();
         var c = newCopier(null, null, doneCb);
-        return expect(c._connAndCopy(s3URI)).to.become(s3URI);
+        return expect(c._connAndCopy(s3URI, table)).to.become(s3URI);
       });
 
       it("should connect to pg", function (done) {
@@ -427,7 +410,7 @@ describe("S3 to Redshift copier", function () {
         var doneCb = this.sinon.spy();
         var c = newCopier(null, null, doneCb);
         c._tablePostfix = "_pahoyhoy";
-        return expect(c._connAndCopy(s3URI)).to.be.fulfilled
+        return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
           .then(function () {
             expect(c._pg.client.query).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
               table + c._tablePostfix, s3URI,
@@ -438,7 +421,7 @@ describe("S3 to Redshift copier", function () {
       it("should do queries", function (done) {
         var doneCb = this.sinon.spy();
         var c = newCopier(null, null, doneCb);
-        return expect(c._connAndCopy(s3URI)).to.be.fulfilled
+        return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
           .then(function () {
             expect(c._pg.client.query).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
               table, s3URI,
