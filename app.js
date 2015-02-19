@@ -50,7 +50,7 @@ if(!credentials) {
 
 opts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 
-var s3c = new S3Copier(poller, pg, opts.copyParams, _.omit(opts, ["copyParams", "S3"]));
+var s3c = new S3Copier(poller, pg, s3, opts.copyParams, _.omit(opts, ["copyParams", "S3"]));
 
 
 function cleanup(sig) {
