@@ -111,6 +111,20 @@ describe("S3 to Redshift copier", function () {
       return new s3t.S3Copier(fakePoller, fakePg, fakeS3, copyParams, options);
     }
 
+    function newManifest(mandatory, n, put, del, table) {
+      var s3 = new tu.FakeS3(put, del)
+        , manifest = new mup.Manifest(s3, {mandatory:!!mandatory,
+          bucket: "manif-bucket",
+          prefix: "manif-prefix/",
+          table:table})
+        ;
+
+      n = n || 0;
+
+      manifest._addAll(newSQSMsg(n).Messages);
+
+      return  manifest;
+    }
 
     function newSQSMsg(n) {
       return new tu.SQSMessage(n, "bucket", "prefix/");
@@ -184,21 +198,6 @@ describe("S3 to Redshift copier", function () {
 
     describe("_onManifest", function () {
 
-      function newManifest(mandatory, n, put, del, table) {
-        var s3 = new tu.FakeS3(put, del)
-          , manifest = new mup.Manifest(s3, {mandatory:!!mandatory,
-            bucket: "manif-bucket",
-            prefix: "manif-prefix/",
-            table:table})
-          ;
-
-        n = n || 0;
-
-        manifest._addAll(newSQSMsg(n).Messages);
-
-        return  manifest;
-      }
-
       it("should not join fulfilled manifest promises", function () {
         var c = newCopier(null, null, null)
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
@@ -249,6 +248,53 @@ describe("S3 to Redshift copier", function () {
           expect(_delete).to.have.been.calledTwice;
           expect(mfDelete).to.have.been.calledOnce;
           expect(mf2Delete).to.have.been.calledOnce;
+        });
+      });
+
+      it("should catch copy errors and not delete the messages but delete the manifest", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
+          , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").returns(Promise.reject(new Error("not gonna happen, bub")));
+
+        c._onManifest(mf);
+        return Promise.props(c._manifestsPending).then(function () {
+          expect(c._manifestsPending["table1"].isResolved()).to.be.true;
+          expect(_delete).to.not.have.been.called;
+          expect(mfDelete).to.have.been.called;
+        });
+      });
+
+      it("should catch message deletion errors", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(c, "_delete").returns(Promise.reject(new Error("nope")));
+        this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+
+        c._onManifest(mf);
+        return Promise.props(c._manifestsPending).then(function () {
+          expect(c._manifestsPending["table1"].isResolved()).to.be.true;
+        });
+      });
+
+      it("should catch manifest deletion errors", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(c, "_delete").returns(Promise.resolve());
+        this.sinon.stub(mf, "delete").returns(Promise.reject(new Error("I DON'T THINK SO")));
+
+        c._onManifest(mf);
+        return Promise.props(c._manifestsPending).then(function () {
+          expect(c._manifestsPending["table1"].isResolved()).to.be.true;
         });
       });
 
