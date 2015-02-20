@@ -130,6 +130,31 @@ describe("S3 to Redshift copier", function () {
       return new tu.SQSMessage(n, "bucket", "prefix/");
     }
 
+    describe("stop", function () {
+      it("should return a promise of pending manifests", function() {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          , def = defer()
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").returns(def.promise);
+        this.sinon.stub(c, "_delete").returns(Promise.resolve());
+        this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+
+        c.started = true; // kluge to make S3Copier think it's been started without actually starting it
+
+        c._onManifest(mf);
+        var p = c.stop().then(function (pend) {
+          expect(pend["table1"]).to.deep.equal(mf);
+        });
+
+        def.resolve(mf.manifestURI);
+
+        return p
+      });
+    });
+
+
     describe("_dedup", function () {
       it("should delete duplicate messages", function () {
         var sm = newSQSMsg(10)
