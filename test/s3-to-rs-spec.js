@@ -94,13 +94,13 @@ describe("S3 to Redshift copier", function () {
         ]
       };
 
-    function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event) {
+    function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event, rsStatus) {
       s3Event = s3Event || {}
       var fakePoller = new tu.FakePoller("derr/some.stuff.here")
         , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb)
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
-        ;
-      var options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
+        , fakeRs = new tu.FakeRedshift("blaster", rsStatus || "available")
+        , options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
         "minToUpload": 10,
         "maxWaitSeconds": 300,
         "mandatory": true,
@@ -108,7 +108,7 @@ describe("S3 to Redshift copier", function () {
         "prefix": "manifest-prefix/"
       }};
 
-      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, {} ,copyParams, options);
+      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs,copyParams, options);
     }
 
     function newManifest(mandatory, n, put, del, table) {

@@ -46,6 +46,27 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   },
 
   "S3Copier": {
+    // AWS Redshift options.
+    // Required.
+    "Redshift": {
+      // if the Redshift cluster's status is anything but "available", try checking its status at intervals
+      // of clusterAvailCheckInterval seconds until it's back up. Set this to -1 to bail out if the cluster
+      // becomes unavailable.
+      // Optional. Defaults to -1.
+      "clusterAvailCheckInterval": 300,
+      // Redshift connection string.
+      // Required.
+      "connStr": "postgres://username:password@example.com:5439/schema",
+      // cluster region.
+      // Required.
+      "region": "us-east-1",
+      // bound parameters. ClusterIdentifier is required, others are optional
+      "params": {
+        // cluster ID.
+        // Required.
+        "ClusterIdentifier": "mycluster"
+      }
+    },
     // AWS S3 constructor options.
     // Required. ACL must be defined here, other parameters are optional.
     "S3": {
@@ -77,9 +98,6 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     "LRU": {
       "max": 1000
     },
-    // Redshift connection string.
-    // Required.
-    "connStr": "postgres://username:password@example.com:5439/schema",
     // how often to poll for new messages from SQS.
     // Required.
     "pollIntervalSeconds": 300,
@@ -135,12 +153,14 @@ You can [map environment variables to configuration parameters](https://github.c
 ```json
 {
   "S3Copier": {
-    "connStr": "RS_CONN"
+    "Redshift": {
+      "connStr": "RS_CONN"
+    }
   }
 }
 ```
 
-would map `$RS_CONN` to `S3Copier.connStr`. Values set with environment variables always override configuration file values.
+would map `$RS_CONN` to `S3Copier.Redshift.connStr`. Values set with environment variables always override configuration file values.
 
 ## Running S4QS-RS
 After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs` or `DEBUG=sq4s-rs:* s4qs-rs` to see debugging information.

@@ -1,5 +1,7 @@
 {
   "S3Copier": {
-    "connStr": "RS_CONN"
+    "Redshift": {
+      "connStr": "RS_CONN"
+    }
   }
 }

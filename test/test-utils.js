@@ -169,3 +169,30 @@ FakeS3.prototype.deleteObject = function deleteObject(params) {
   return new FakeAWSReq(this.del.eventName, this.del.content);
 };
 
+var FakeRedshift = exports.FakeRedshift = function FakeRedshift(clusterId, clusterStatus, fail) {
+  this.clusterId = clusterId;
+  this.clusterStatus = clusterStatus;
+  this.fail = !!fail;
+};
+
+FakeRedshift.prototype.describeClusters = function describeClusters(params, callback) {
+  var err, res
+    , clusterId = this.clusterId
+    , clusterStatus = this.clusterStatus
+    ;
+
+  if(this.fail) {
+    err = new Error("FALE");
+  } else {
+    res = {
+      Clusters: [
+        {
+          ClusterIdentifier: clusterId
+          , ClusterStatus: clusterStatus
+        }
+      ]
+    };
+  }
+
+  setImmediate(_.bind(callback, callback, err, res));
+};
