@@ -108,7 +108,7 @@ describe("S3 to Redshift copier", function () {
         "prefix": "manifest-prefix/"
       }};
 
-      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, copyParams, options);
+      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, {} ,copyParams, options);
     }
 
     function newManifest(mandatory, n, put, del, table) {
