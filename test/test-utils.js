@@ -5,7 +5,7 @@ var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var LRU = require('lru-cache');
 var _ = require('lodash');
-var when = require('when');
+var Promise = require('bluebird');
 var debug = require('debug')('test-utils');
 var inspect = _.partialRight(util.inspect, {depth: 10});
 var sinon = require('sinon');
@@ -39,17 +39,17 @@ FakePoller.prototype.poll = function poll() {
 
 FakePoller.prototype.deleteMsgs = function(messages) {
   if(!messages.length) {
-    return when();
+    return Promise.resolve();
   }
 
   var self = this;
 
-  return when.all(_.map(messages, function (msg) {
+  return Promise.all(_.map(messages, function (msg) {
     if(self.handles.get(msg.ReceiptHandle)) {
       self.handles.del(msg.ReceiptHandle);
-      return when("ok");
+      return Promise.resolve("ok");
     } else {
-      return when.reject(new Error(msg.ReceiptHandle + " not found"));
+      return Promise.reject(new Error(msg.ReceiptHandle + " not found"));
     }
   }));
 };
@@ -139,13 +139,21 @@ var FakeSQS = exports.FakeSQS = function FakeSQS(rcv, del) {
   this.del = del || {};
 };
 
-FakeSQS.prototype.receiveMessage = function receiveMessage() {
-  return new FakeAWSReq(this.rcv.event, this.rcv.content);
+FakeSQS.prototype.receiveMessage = function receiveMessage(params, cb) {
+  var err, res;
+  if (this.rcv.event === 'success') {
+    res = this.rcv.content;
+  } else {
+    err = this.rcv.content;
+  }
+  setImmediate(_.bind(cb, cb, err, res));
 };
+
 
 FakeSQS.prototype.deleteMessageBatch = function deleteMessageBatch() {
   return new FakeAWSReq(this.del.event, this.del.content);
 };
+
 
 var FakeS3 = exports.FakeS3 = function FakeS3(put, del) {
   this.put = put || {};
@@ -156,6 +164,8 @@ FakeS3.prototype.putObject = function putObject(params) {
   return new FakeAWSReq(this.put.eventName, this.put.content);
 };
 
+
 FakeS3.prototype.deleteObject = function deleteObject(params) {
   return new FakeAWSReq(this.del.eventName, this.del.content);
 };
+
