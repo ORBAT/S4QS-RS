@@ -34,8 +34,10 @@ function creds(keyId, key) {
 debug("Started with env " + process.env.NODE_ENV);
 
 var credentials = aws.config.credentials;
+
 if(!credentials) {
-  error("No credentials found?");
+  console.error("No credentials found?");
+  process.exit(1);
 }
 
 
