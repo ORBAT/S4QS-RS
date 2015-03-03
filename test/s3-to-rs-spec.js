@@ -100,15 +100,23 @@ describe("S3 to Redshift copier", function () {
         , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb)
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
         , fakeRs = new tu.FakeRedshift("blaster", rsStatus || "available")
-        , options = {connStr: "postgres://bler", pollIntervalS: 60, manifestUploader: {
-        "minToUpload": 10,
-        "maxWaitSeconds": 300,
-        "mandatory": true,
-        "bucket": "manifest-bukkit",
-        "prefix": "manifest-prefix/"
+        , options = {
+          Redshift: {
+            connStr: "postgres://bler"
+            , params: {
+              ClusterIdentifier: "qux"
+            }
+          }
+          , pollIntervalS: 60
+          , manifestUploader: {
+            "minToUpload": 10
+            , "maxWaitSeconds": 300
+            , "mandatory": true
+            , "bucket": "manifest-bukkit"
+            , "prefix": "manifest-prefix/"
       }};
 
-      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs,copyParams, options);
+      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs, copyParams, options);
     }
 
     function newManifest(mandatory, n, put, del, table) {
