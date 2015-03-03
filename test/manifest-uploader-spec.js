@@ -14,6 +14,7 @@ var Promise = require('bluebird');
 require('mocha-sinon');
 var expect = chai.expect;
 var should = chai.should();
+var sinon = require('sinon');
 
 var inspect = _.partialRight(util.inspect, {depth: 3});
 
@@ -66,8 +67,11 @@ describe("Manifest uploading", function () {
 
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
-      return new mup.Uploader(new tu.FakeS3(put, del), {mandatory:true, minToUpload: minUp, maxWaitSeconds: mwt,
+      var uploader = new mup.Uploader(new tu.FakeS3(put, del), {mandatory: true, minToUpload: minUp, maxWaitSeconds: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
+      uploader._spy = sinon.spy();
+      uploader.on('manifest', uploader._spy.bind(uploader));
+      return uploader;
     }
 
     it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
@@ -129,7 +133,7 @@ describe("Manifest uploading", function () {
         up._uploadGroup("table2");
       });
 
-      it("should upload emit 'manifest' on successful upload", function (done) {
+      it("should emit 'manifest' on successful upload", function (done) {
         var up = newUploader(20,1)
           , msgs = newSQSMsg(15, "table2/").Messages
           ;
@@ -145,6 +149,26 @@ describe("Manifest uploading", function () {
           done();
         });
         up._uploadGroup("table2");
+      });
+
+      it("should delete the manifest if nobody's listening to 'manifest'", function (done) {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          ;
+
+        up.removeAllListeners("manifest");
+
+        console.error("listeners", up.listeners("manifest").length);
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"]
+          , manifUpl = this.sinon.stub(manif, "_upload").returns(Promise.resolve(manif))
+          , manifDel = this.sinon.stub(manif, "delete").returns(Promise.resolve(manif.manifestURI))
+          ;
+
+        up._uploadGroup("table2").then(function() {
+          expect(manifDel).to.have.been.calledOnce;
+        }).should.notify(done);
       });
 
       it("should upload manifests", function () {
