@@ -139,14 +139,8 @@ var FakeSQS = exports.FakeSQS = function FakeSQS(rcv, del) {
   this.del = del || {};
 };
 
-FakeSQS.prototype.receiveMessage = function receiveMessage(params, cb) {
-  var err, res;
-  if (this.rcv.event === 'success') {
-    res = this.rcv.content;
-  } else {
-    err = this.rcv.content;
-  }
-  setImmediate(_.bind(cb, cb, err, res));
+FakeSQS.prototype.receiveMessage = function receiveMessage() {
+  return new FakeAWSReq(this.rcv.event, this.rcv.content);
 };
 
 
@@ -192,6 +186,9 @@ FakeRedshift.prototype.describeClusters = function describeClusters(params, call
         }
       ]
     };
+  }
+  if(_.isFunction(params)) {
+    callback = params;
   }
 
   setImmediate(_.bind(callback, callback, err, res));
