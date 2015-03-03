@@ -98,7 +98,6 @@ describe("Manifest uploading", function () {
         this.sinon.spy(up._manifestGroups["table1"], "_upload");
         var count = 0;
         up.on('manifest', function(mf) {
-          console.error("manifest");
           expect(mf.table).to.match(/table2|table3/);
           count++;
           if(count == 1) {
@@ -151,14 +150,11 @@ describe("Manifest uploading", function () {
         up._uploadGroup("table2");
       });
 
-      it("should delete the manifest if nobody's listening to 'manifest'", function (done) {
+      it("should not upload manifests if nobody's listening to 'manifest'", function () {
         var up = newUploader(20,1)
           , msgs = newSQSMsg(15, "table2/").Messages
           ;
 
-        up.removeAllListeners("manifest");
-
-        console.error("listeners", up.listeners("manifest").length);
         up.addMessages(msgs);
 
         var manif = up._manifestGroups["table2"]
@@ -166,9 +162,36 @@ describe("Manifest uploading", function () {
           , manifDel = this.sinon.stub(manif, "delete").returns(Promise.resolve(manif.manifestURI))
           ;
 
-        up._uploadGroup("table2").then(function() {
+        up.removeAllListeners("manifest");
+        var p = up._uploadGroup("table2");
+
+        return p.then(function() {
+          expect(manifUpl).to.not.have.been.called;
+        });
+      });
+
+      it("should delete already uploaded manifests if nobody's listening to 'manifest' when the upload finishes", function () {
+        var up = newUploader(20,1)
+          , msgs = newSQSMsg(15, "table2/").Messages
+          ;
+
+        up.addMessages(msgs);
+
+        var manif = up._manifestGroups["table2"]
+          , deferred = defer()
+          , manifUpl = this.sinon.stub(manif, "_upload").returns(deferred.promise)
+          , manifDel = this.sinon.stub(manif, "delete").returns(Promise.resolve(manif.manifestURI))
+          ;
+
+        var p = up._uploadGroup("table2");
+
+        up.removeAllListeners("manifest");
+
+        deferred.resolve(manif);
+
+        return p.then(function() {
           expect(manifDel).to.have.been.calledOnce;
-        }).should.notify(done);
+        });
       });
 
       it("should upload manifests", function () {
