@@ -139,7 +139,77 @@ describe("S3 to Redshift copier", function () {
     }
 
     describe("_availHandler", function () {
-      it("should stop S4QS when cluster goes unavailable")
+
+      it("should restart S4QS when cluster becomes available again", function () {
+
+        clock = this.sinon.useFakeTimers();
+
+        var c = newCopier(null, null, null, null, "available")
+          , uplStart = this.sinon.stub(c._uploader, "start")
+          , uplStop = this.sinon.stub(c._uploader, "stop")
+          , cStop = this.sinon.spy(c, "stop")
+          , poll = this.sinon.stub(c._poller, "poll")
+          , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail")
+          ;
+
+        // everything's OK at startup, then the cluster goes down, and then up again
+        _isClusterAvail.onCall(0).returns(Promise.resolve(true));
+        _isClusterAvail.onCall(1).returns(Promise.resolve(false));
+        _isClusterAvail.returns(Promise.resolve(true));
+
+        c._availCheckInterval = 500;
+
+        return c.start()
+          .bind(this)
+          .then(function () {
+            expect(poll).to.have.been.calledOnce;
+            expect(uplStart).to.have.been.calledOnce;
+            clock.tick(c._availCheckInterval * 1000);
+          })
+          .then(function() {
+            clock.tick(c._availCheckInterval * 1000);
+            clock.restore();
+            clock = null;
+          }).delay(2)
+          .then(function() {
+            expect(poll).to.have.been.calledTwice;
+            expect(uplStart).to.have.been.calledTwice;
+          })
+          ;
+      });
+
+      it("should stop S4QS when cluster goes unavailable", function () {
+
+        clock = this.sinon.useFakeTimers();
+
+        var c = newCopier(null, null, null, null, "available")
+          , uplStart = this.sinon.stub(c._uploader, "start")
+          , uplStop = this.sinon.stub(c._uploader, "stop")
+          , cStop = this.sinon.spy(c, "stop")
+          , poll = this.sinon.stub(c._poller, "poll")
+          , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail")
+          ;
+
+        // everything's OK at startup but then the cluster goes down. OH NOES.
+        _isClusterAvail.onCall(0).returns(Promise.resolve(true));
+        _isClusterAvail.returns(Promise.resolve(false));
+
+        c._availCheckInterval = 500;
+        return c.start()
+          .bind(this)
+          .then(function () {
+            expect(uplStart).to.have.been.called;
+            expect(poll).to.have.been.called;
+            clock.tick(c._availCheckInterval * 1000);
+            clock.restore();
+            clock = null;
+          }).delay(2)
+          .then(function() {
+            expect(uplStop).to.have.been.called;
+            expect(cStop).to.have.been.called;
+          })
+          ;
+      });
     });
 
     describe("_isClusterAvail", function () {
@@ -311,7 +381,7 @@ describe("S3 to Redshift copier", function () {
         c._onManifest(mf2);
 
         def.resolve(mf.manifestURI);
-        setTimeout(def2.resolve.bind(def2, mf2.manifestURI), 100);
+        setTimeout(def2.resolve.bind(def2, mf2.manifestURI), 20);
 
         return Promise.props(c._manifestsPending).then(function (pend) {
           expect(pend["table1"]).to.be.instanceOf(Array);
