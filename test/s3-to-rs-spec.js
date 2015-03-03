@@ -138,6 +138,44 @@ describe("S3 to Redshift copier", function () {
       return new tu.SQSMessage(n, "bucket", "prefix/");
     }
 
+    describe("_availHandler", function () {
+      it("should stop S4QS when cluster goes unavailable")
+    });
+
+    describe("_isClusterAvail", function () {
+
+      it("should return false if availability check fails", function () {
+        var c = newCopier(null, null, null, null, "resizing");
+        this.sinon.stub(c._rs, "describeClustersAsync").returns(Promise.reject(new Error("nope nope nope nope")));
+        return expect(c._isClusterAvail()).to.become.false;
+      });
+
+      it("should return false if cluster is not available", function () {
+        var c = newCopier(null, null, null, null, "resizing");
+        return expect(c._isClusterAvail()).to.become.true;
+      });
+
+      it("should return true if cluster is available", function () {
+        var c = newCopier(null, null, null, null);
+        return expect(c._isClusterAvail()).to.become.true;
+      });
+    });
+
+    describe("start", function () {
+
+      it("should not poll for messages if the redshift cluster is unavailable", function() {
+        var c = newCopier(null, null, null, null, "rebooting")
+          , uplStart = this.sinon.stub(c._uploader, 'start')
+          , poll = this.sinon.stub(c._poller, 'poll')
+          , isClusterAvail = this.sinon.stub(c, "_isClusterAvail").returns(Promise.resolve(false))
+        ;
+        return c.start().then(function () {
+          expect(uplStart).to.not.have.been.called;
+          expect(poll).to.not.have.been.called;
+        });
+      });
+    });
+
     describe("stop", function () {
       it("should return a promise of pending manifests", function() {
         var c = newCopier(null, null, null)
