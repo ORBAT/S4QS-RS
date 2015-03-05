@@ -31,6 +31,7 @@
   "devDependencies": {
     "mocha": "2.x",
     "chai": "1.x",
+    "sinon": "1.12",
     "blanket": "1.x",
     "sinon-chai": "2.x",
     "mocha-sinon": "1.x",
