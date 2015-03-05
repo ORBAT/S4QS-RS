@@ -42,8 +42,22 @@ describe("S3 to Redshift copier", function () {
   });
 
   var event;
+  var s3URI
+    , toTbl
+    , table
+    , copyParams;
 
   beforeEach(function () {
+    s3URI = "s3://bucket/derr/some.stuff.here/fsadjlkgasjkl.csv";
+    toTbl = "some.stuff.here";
+    table = "some_stuff_here";
+    copyParams = {
+      "table": "/s3:\/\/.*?\/derr\/(.*?)\//i",
+      "args": [
+        "GZIP",
+        "TRUNCATECOLUMNS"
+      ]
+    };
     event = {
       "Records": [
         {
@@ -83,16 +97,6 @@ describe("S3 to Redshift copier", function () {
   });
 
   describe("S3Copier", function () {
-    var s3URI = "s3://bucket/derr/some.stuff.here/fsadjlkgasjkl.csv"
-      , toTbl = "some.stuff.here"
-      , table = "some_stuff_here"
-      , copyParams = {
-        "table": "/s3:\/\/.*?\/derr\/(.*?)\//i",
-        "args": [
-          "GZIP",
-          "TRUNCATECOLUMNS"
-        ]
-      };
 
     function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event, rsStatus) {
       s3Event = s3Event || {}
@@ -114,7 +118,11 @@ describe("S3 to Redshift copier", function () {
             , "mandatory": true
             , "bucket": "manifest-bukkit"
             , "prefix": "manifest-prefix/"
-      }};
+          }
+          , timeSeries: {
+            period: 60 * 60 * 24
+          }
+        };
 
       return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs, copyParams, options);
     }
@@ -239,7 +247,7 @@ describe("S3 to Redshift copier", function () {
           , poll = this.sinon.stub(c._poller, 'poll')
           , isClusterAvail = this.sinon.stub(c, "_isClusterAvail").returns(Promise.resolve(false))
         ;
-        return c.start().then(function () {
+        return expect(c.start()).to.be.rejected.then(function () {
           expect(uplStart).to.not.have.been.called;
           expect(poll).to.not.have.been.called;
         });
@@ -338,6 +346,8 @@ describe("S3 to Redshift copier", function () {
     });
 
     describe("_onManifest", function () {
+
+      it("should append time series information to table name when doing COPYs");
 
       it("should not join fulfilled manifest promises", function () {
         var c = newCopier(null, null, null)
@@ -538,18 +548,6 @@ describe("S3 to Redshift copier", function () {
         return expect(c._connAndCopy(s3URI)).to.be.fulfilled
           .then(function () {
             expect(c._pg.connect).to.have.been.calledOnce.and.calledWith("postgres://bler");
-          }).should.notify(done);
-      });
-
-      it("should do queries with a table postfix", function (done) {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, null, doneCb);
-        c._tablePostfix = "_pahoyhoy";
-        return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
-          .then(function () {
-            expect(c._pg.client.query).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
-              table + c._tablePostfix, s3URI,
-              copyParams.args.join(' ')));
           }).should.notify(done);
       });
 

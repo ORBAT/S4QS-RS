@@ -109,11 +109,16 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // parameters for Redshift's COPY query.
     // Required.
     "copyParams": {
+      // Redshift schema to use
+      "schema": "myschema",
       /* 
        the "table" property is used to set the Redshift table name. This can be either a string
        like "my_table_name" or a regular expression (which must start and end with a /).
-       When using a regex, periods are converted to underscores but that's it.
-       Feed S4QS-RS weird URIs and weird stuff will probably happen. You have been warned.
+       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group will be used
+       as the table name.
+
+       When using a regex, periods in the S3 URI are converted to underscores but that's it.
+       Feed it weird URIs and weird stuff will probably happen. You have been warned.
 
        The example regex and tablePostfix combination would turn an URI like
        s3://bucketname/whatevs/this.will.be.the.table.name/qwerasdf.csv.gz

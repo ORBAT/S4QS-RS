@@ -44,7 +44,7 @@
         "ClusterIdentifier": "mycluster"
       }
     },
-    // AWS S3 constructor options.
+    // AWS S3 constructor options, used by the manifest uploader.
     // Required. ACL must be defined here, other parameters are optional.
     "S3": {
       "params": {
@@ -86,11 +86,16 @@
     // parameters for Redshift's COPY query.
     // Required.
     "copyParams": {
+      // Redshift schema to use
+      "schema": "myschema",
       /* 
        the "table" property is used to set the Redshift table name. This can be either a string
        like "my_table_name" or a regular expression (which must start and end with a /).
-       When using a regex, periods are converted to underscores but that's it.
-       Feed S4QS-RS weird URIs and weird stuff will probably happen. You have been warned.
+       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group will be used
+       as the table name.
+
+       When using a regex, periods in the S3 URI are converted to underscores but that's it.
+       Feed it weird URIs and weird stuff will probably happen. You have been warned.
 
        The example regex and tablePostfix combination would turn an URI like
        s3://bucketname/whatevs/this.will.be.the.table.name/qwerasdf.csv.gz
@@ -117,6 +122,32 @@
         "NULL": "null",
         "TIMEFORMAT": "auto"
       }
+    },
+    /* 
+     S4QS-RS copies data into time series tables with configurable time period and old table retention.
+     A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
+     series table is created.
+
+
+
+     See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
+     on the concept.
+
+     Required. 
+     */
+    "timeSeries": {
+      // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is 
+      // created per every day
+      "period": 86400,
+
+// * @param {Number} options.timeSeries.maxTables Keep a maximum of maxTables time series tables. Oldest tables will be
+// * deleted
+// * @param {String} options.timeSeries.latestPostfix if this is set, use table name + this postfix to create a view
+// * to the latest time series table
+// * @param {Object} options.timeSeries.tableDef Time series table DDL etc.
+// * @param {Array} options.timeSeries.tableDef.columns Array of column definitions like ["source int not null encode bytedict",
+// * "campaign char(24) encode bytedict", "..."]
+// * @param {Array} options.timeSeries.tableDef.tableAttrs Array of table attributes like ["DISTKEY(ID)", "SORTKEY(TS)"]
     }
   }
 }
