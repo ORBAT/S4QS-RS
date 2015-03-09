@@ -7,6 +7,7 @@ var mup = require('../lib/manifest-uploader');
 var tu = require('./test-utils');
 var ut = require('../lib/utils');
 var _ = require('lodash');
+var sinon = require('sinon');
 var chai = require('chai');
 var util = require('util');
 var Promise = require('bluebird');
@@ -31,6 +32,20 @@ function defer() {
 }
 
 describe("S3 to Redshift copier", function () {
+
+  function stubPgResult(rows) {
+
+    var p;
+
+    if(_.isError(rows)) {
+      p = Promise.reject(rows);
+    } else {
+      p = Promise.resolve({rows: rows})
+    }
+
+    var cl = Promise.resolve({queryAsync: this.sinon.stub().returns(p)});
+    this.sinon.stub(ut, "getPgClient").returns(cl.disposer(function () {}));
+  }
 
   var clock;
 
@@ -96,12 +111,86 @@ describe("S3 to Redshift copier", function () {
     };
   });
 
+  describe("TimeSeriesManager", function () {
+
+    var options
+      , schema = "myschema"
+      ;
+
+    beforeEach(function () {
+      options = {};
+      options[table] = {
+        period: 60 * 60 * 24
+        , latestPostfix : "_latest"
+        , maxTables: 30
+        , columns: ["col_a int encode lzo primary key"
+          , "col_b bigint encode bytedict not null"
+          , "col_c varchar(24) encode lzo not null"]
+        , tableAttrs: ["DISTKEY(col_a)", "SORTKEY(col_b,col_c)"]
+      };
+    });
+
+    function newTSM(queryRes) {
+
+      var fp = new tu.FakePg();
+
+      stubPgResult.bind(this, queryRes)();
+
+      var usingPg = function(fn) {
+        return Promise.using(ut.getPgClient(fp, "postgres://dasjkdsa"), fn);
+      };
+
+      return new s3t.TimeSeriesManager(usingPg, schema, options);
+    }
+
+    describe("_pruneTsTables", function() {
+      it("should drop oldest tables when pruning", function() {
+        var tsm = newTSM.bind(this)()
+          , tableNames = _.times(tsm._options[table].maxTables + 2, function(n) {
+            return table + "_" + n;
+          })
+          , listTables = this.sinon.stub(tsm, '_listTsTables').returns(Promise.resolve(tableNames))
+          , dropTable = this.sinon.stub(tsm, '_dropTable', Promise.resolve)
+          ;
+        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(0,2)).then(function() {
+          expect(dropTable).to.have.been.calledTwice;
+          expect(dropTable).to.have.been.calledWithMatch(tableNames[0]);
+          expect(dropTable).to.have.been.calledWithMatch(tableNames[1]);
+        });
+      });
+    });
+
+    describe("tsTableFor", function () {
+      it("should call _pruneTsTables when table didn't exist", function() {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var tsm = newTSM.bind(this)()
+          , prune = this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.resolve([]))
+          ;
+        return tsm.tsTableFor(table).then(function() {
+          expect(prune).to.have.been.calledOnce;
+          expect(prune).to.have.been.calledWithMatch(table);
+        });
+      });
+
+      it("should return table name when ts table doesn't exist", function() {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var tsm = newTSM.bind(this)();
+        this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.resolve([]));
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_172800");
+      });
+    });
+  });
+
   describe("S3Copier", function () {
 
     function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event, rsStatus) {
-      s3Event = s3Event || {}
+      s3Event = s3Event || {};
       var fakePoller = new tu.FakePoller("derr/some.stuff.here")
-        , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb)
+        , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb || sinon.spy())
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
         , fakeRs = new tu.FakeRedshift("blaster", rsStatus || "available")
         , options = {
@@ -120,7 +209,13 @@ describe("S3 to Redshift copier", function () {
             , "prefix": "manifest-prefix/"
           }
           , timeSeries: {
-            period: 60 * 60 * 24
+            table: {
+              period: 60 * 60 * 24
+              , maxTables: 30
+              , latestPostfix: "_latest"
+              , columns: []
+              , tableAttrs: []
+            }
           }
         };
 
@@ -346,8 +441,6 @@ describe("S3 to Redshift copier", function () {
     });
 
     describe("_onManifest", function () {
-
-      it("should append time series information to table name when doing COPYs");
 
       it("should not join fulfilled manifest promises", function () {
         var c = newCopier(null, null, null)

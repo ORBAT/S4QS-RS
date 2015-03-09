@@ -110,11 +110,13 @@ var FakePg = exports.FakePg = function FakePg(connErr, queryErr, doneCb) {
 FakePg.prototype.connect = function connect(connStr, cb) {
   var self = this;
   var client = {
-    query: function query(query, cb) {
+    query: sinon.stub().yields(self.queryErr)
+
+    /*function query(query, cb) {
       setImmediate(cb.bind(null, self.queryErr));
-    }
+    }*/
   };
-  sinon.spy(client, "query");
+
   setImmediate(
     function () {
     self.client = client;

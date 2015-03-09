@@ -1,9 +1,8 @@
 # S4QS-RS
-S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY. S4QS-RS gathers files
-into S3 manifests, which are then used for the COPY. See Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
-documentation for more information.
+S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
+documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention.
 
-See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
+See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
 ## Installation
 
@@ -67,7 +66,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "ClusterIdentifier": "mycluster"
       }
     },
-    // AWS S3 constructor options.
+    // AWS S3 constructor options, used by the manifest uploader.
     // Required. ACL must be defined here, other parameters are optional.
     "S3": {
       "params": {
@@ -144,6 +143,46 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "MAXERROR": 100,
         "NULL": "null",
         "TIMEFORMAT": "auto"
+      }
+    },
+    /* 
+     S4QS-RS copies data into time series tables with a configurable time period.
+     A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
+     series table is created. A configurable amount of old tables are retained, and old tables are dropped when needed.
+
+     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match 
+     time series table configuration to incoming S3 files.
+
+     See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
+     on the concept.
+
+     Required. All sub-object properties are also required.
+     */
+    "timeSeries": {
+      // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the "table"
+      // property above)
+      "some_table_name": {
+        // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is 
+        // created per every day
+        "period": 86400,
+        // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
+        "maxTables": 30,
+        // How many tables to have in the rolling view
+        "tablesInView": 25,
+        // if this is set, use table name + this postfix to create a view that always points to the latest time series table
+        "latestPostfix": "_latest",
+        // Array of column definitions
+        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) ENCODE LZO DISTKEY", "..."],
+        // Array of table attributes
+        "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
+      },
+      "other_table_name": {
+        "period": 86400,
+        "maxTables": 30,
+        "tablesInView": 25,
+        "latestPostfix": "_latest",
+        "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
+        "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
     }
   }
