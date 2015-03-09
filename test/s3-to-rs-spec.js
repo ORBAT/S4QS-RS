@@ -336,6 +336,27 @@ describe("S3 to Redshift copier", function () {
 
     describe("start", function () {
 
+      it("should only have one _availHandler interval running", function () {
+
+        clock = this.sinon.useFakeTimers();
+
+        var c = newCopier(null, null, null, null, "available")
+          , uplStart = this.sinon.stub(c._uploader, "start")
+          , uplStop = this.sinon.stub(c._uploader, "stop")
+          , cStop = this.sinon.spy(c, "stop")
+          , poll = this.sinon.stub(c._poller, "poll")
+          , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail").returns(Promise.resolve(false))
+          , _availHandler = this.sinon.spy(c, "_availHandler")
+          ;
+        c._availCheckInterval = 500;
+
+        return c.start().tap(c.start.bind(c)).then(function () {
+          clock.tick(c._availCheckInterval * 1000);
+          expect(_availHandler).to.have.been.calledOnce;
+        });
+
+      });
+
       it("should not poll for messages if the redshift cluster is unavailable", function() {
         var c = newCopier(null, null, null, null, "rebooting")
           , uplStart = this.sinon.stub(c._uploader, 'start')
