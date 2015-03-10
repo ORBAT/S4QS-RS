@@ -12,6 +12,7 @@ var S3Copier = s3rs.S3Copier;
 var pg = require('pg');
 var _ = require('lodash');
 var config = require('config');
+var Promise = require('bluebird');
 var debug = require('debug')('s4qs-rs:s4qs-app');
 var error = require('debug')('s4qs-rs:s4qs-app:error');
 
@@ -57,7 +58,7 @@ var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
 opts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 
-var s3c = new S3Copier(poller, pg, s3, rs, opts.copyParams, opts);
+var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, opts.copyParams, opts);
 
 
 function cleanup(sig) {

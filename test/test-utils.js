@@ -10,6 +10,7 @@ var debug = require('debug')('test-utils');
 var inspect = _.partialRight(util.inspect, {depth: 10});
 var sinon = require('sinon');
 var ut = require('../lib/utils');
+var sinonAsPromised = require('sinon-as-promised')(Promise);
 
 var randomString = exports.randomString = function randomString(len) {
   var charCodes = _.times(len, function () {
@@ -109,13 +110,21 @@ var FakePg = exports.FakePg = function FakePg(connErr, queryErr, doneCb) {
 
 FakePg.prototype.connect = function connect(connStr, cb) {
   var self = this;
+
+
   var client = {
     query: sinon.stub().yields(self.queryErr)
-
+    , queryAsync: sinon.stub()
     /*function query(query, cb) {
       setImmediate(cb.bind(null, self.queryErr));
     }*/
   };
+
+  if(self.queryErr) {
+    client.queryAsync.rejects(self.queryErr);
+  } else {
+    client.queryAsync.resolves();
+  }
 
   setImmediate(
     function () {

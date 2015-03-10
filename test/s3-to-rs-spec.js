@@ -67,6 +67,7 @@ describe("S3 to Redshift copier", function () {
     toTbl = "some.stuff.here";
     table = "some_stuff_here";
     copyParams = {
+      "schema": "myschema",
       "table": "/s3:\/\/.*?\/derr\/(.*?)\//i",
       "args": [
         "GZIP",
@@ -140,7 +141,7 @@ describe("S3 to Redshift copier", function () {
         return Promise.using(ut.getPgClient(fp, "postgres://dasjkdsa"), fn);
       };
 
-      return new s3t.TimeSeriesManager(usingPg, schema, options);
+      return new s3t.TimeSeriesManager(usingPg, schema, "", options);
     }
 
     describe("_pruneTsTables", function() {
@@ -152,7 +153,7 @@ describe("S3 to Redshift copier", function () {
           , listTables = this.sinon.stub(tsm, '_listTsTables').returns(Promise.resolve(tableNames))
           , dropTable = this.sinon.stub(tsm, '_dropTable', Promise.resolve)
           ;
-        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(0,2)).then(function() {
+        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(2)).then(function() {
           expect(dropTable).to.have.been.calledTwice;
           expect(dropTable).to.have.been.calledWithMatch(tableNames[0]);
           expect(dropTable).to.have.been.calledWithMatch(tableNames[1]);
@@ -229,7 +230,7 @@ describe("S3 to Redshift copier", function () {
           }
         };
 
-      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs, copyParams, options);
+      return new s3t.S3Copier(fakePoller, Promise.promisifyAll(fakePg), fakeS3, fakeRs, copyParams, options);
     }
 
     function newManifest(mandatory, n, put, del, table) {
@@ -389,6 +390,7 @@ describe("S3 to Redshift copier", function () {
 
         this.sinon.stub(c, "_connAndCopy").returns(def.promise);
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
 
         c.started = true; // kluge to make S3Copier think it's been started without actually starting it
@@ -483,6 +485,7 @@ describe("S3 to Redshift copier", function () {
 
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI));
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
 
@@ -506,7 +509,7 @@ describe("S3 to Redshift copier", function () {
           , def2 = defer()
           ;
 
-
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
         _connAndCopy.onCall(0).returns(def.promise);
         _connAndCopy.onCall(1).returns(def2.promise);
         _connAndCopy.returns(Promise.resolve());
@@ -533,6 +536,7 @@ describe("S3 to Redshift copier", function () {
           , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
           ;
 
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
         this.sinon.stub(c, "_connAndCopy").returns(Promise.reject(new Error("not gonna happen, bub")));
 
         c._onManifest(mf);
@@ -551,6 +555,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.reject(new Error("nope")));
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -566,6 +571,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
         this.sinon.stub(mf, "delete").returns(Promise.reject(new Error("I DON'T THINK SO")));
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -581,6 +587,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -680,7 +687,7 @@ describe("S3 to Redshift copier", function () {
         var c = newCopier(null, null, doneCb);
         return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
           .then(function () {
-            expect(c._pg.client.query).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
+            expect(c._pg.client.queryAsync).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
               table, s3URI,
               copyParams.args.join(' ')));
           }).should.notify(done);
