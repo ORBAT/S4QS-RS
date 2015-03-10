@@ -161,6 +161,16 @@ describe("S3 to Redshift copier", function () {
     });
 
     describe("tsTableFor", function () {
+      it("should handle _pruneTsTables errors", function() {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var tsm = newTSM.bind(this)()
+          , prune = this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.reject(new Error("A HURR HURR HOI")))
+          ;
+        return expect(tsm.tsTableFor(table)).to.be.fulfilled;
+      });
+
       it("should call _pruneTsTables when table didn't exist", function() {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
