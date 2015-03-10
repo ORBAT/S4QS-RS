@@ -145,39 +145,66 @@ describe("S3 to Redshift copier", function () {
     }
 
     describe("_pruneTsTables", function() {
+      it("should handle drop errors", function() {
+        var tsm = newTSM.bind(this)()
+          , tableNames = _.times(tsm._options[table].maxTables + 2, function(n) {
+            return table + "_" + n;
+          })
+          , listTables = this.sinon.stub(tsm, '_listTsTables').resolves(tableNames)
+          , dropTable = this.sinon.stub(tsm, '_dropTables').rejects("nope")
+          ;
+        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(2)).then(function() {
+          expect(dropTable).to.have.been.calledOnce;
+          expect(dropTable).to.have.been.calledWithMatch(tableNames.slice(0,2));
+        });
+      });
+
       it("should drop oldest tables when pruning", function() {
         var tsm = newTSM.bind(this)()
           , tableNames = _.times(tsm._options[table].maxTables + 2, function(n) {
             return table + "_" + n;
           })
-          , listTables = this.sinon.stub(tsm, '_listTsTables').returns(Promise.resolve(tableNames))
-          , dropTable = this.sinon.stub(tsm, '_dropTable', Promise.resolve)
+          , listTables = this.sinon.stub(tsm, '_listTsTables').resolves(tableNames)
+          , dropTable = this.sinon.stub(tsm, '_dropTables', Promise.resolve)
           ;
         return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(2)).then(function() {
-          expect(dropTable).to.have.been.calledTwice;
-          expect(dropTable).to.have.been.calledWithMatch(tableNames[0]);
-          expect(dropTable).to.have.been.calledWithMatch(tableNames[1]);
+          expect(dropTable).to.have.been.calledOnce;
+          expect(dropTable).to.have.been.calledWithMatch(tableNames.slice(0,2));
         });
       });
     });
 
     describe("tsTableFor", function () {
+
+      it("should update view when a new TS table is created", function () {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var tsm = newTSM.bind(this)()
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
+          , updView = this.sinon.spy(tsm, "_updateView")
+          ;
+        return tsm.tsTableFor(table).then(function() {
+          expect(updView).to.have.been.calledOnce;
+        });
+      });
+
       it("should handle _pruneTsTables errors", function() {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
 
         var tsm = newTSM.bind(this)()
-          , prune = this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.reject(new Error("A HURR HURR HOI")))
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").rejects(new Error("A HURR HURR HOI"))
           ;
         return expect(tsm.tsTableFor(table)).to.be.fulfilled;
       });
 
-      it("should call _pruneTsTables when table didn't exist", function() {
+      it("should call _pruneTsTables when a new TS table was created", function() {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
 
         var tsm = newTSM.bind(this)()
-          , prune = this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.resolve([]))
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").returns(Promise.resolve([]))
           ;
         return tsm.tsTableFor(table).then(function() {
           expect(prune).to.have.been.calledOnce;
@@ -190,8 +217,8 @@ describe("S3 to Redshift copier", function () {
         clock = this.sinon.useFakeTimers(time);
 
         var tsm = newTSM.bind(this)();
-        this.sinon.stub(tsm, '_pruneTsTables').returns(Promise.resolve([]));
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_172800");
+        this.sinon.stub(tsm, "_pruneTsTables").returns(Promise.resolve([]));
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_ts_172800");
       });
     });
   });
