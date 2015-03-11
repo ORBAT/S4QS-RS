@@ -113,8 +113,8 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       /* 
        the "table" property is used to set the Redshift table name. This can be either a string
        like "my_table_name" or a regular expression (which must start and end with a /).
-       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group will be used
-       as the table name.
+       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group 
+       will be used as the table name.
 
        When using a regex, periods in the S3 URI are converted to underscores but that's it.
        Feed it weird URIs and weird stuff will probably happen. You have been warned.
@@ -148,7 +148,8 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     /* 
      S4QS-RS copies data into time series tables with a configurable time period.
      A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
-     series table is created. A configurable amount of old tables are retained, and old tables are dropped when needed.
+     series table is created. A configurable amount of old tables are retained, and old tables are dropped 
+     when needed.
 
      The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match 
      time series table configuration to incoming S3 files.
@@ -156,20 +157,23 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
      See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
      on the concept.
 
-     Required. All sub-object properties are also required.
+     Required. Sub-object properties are required unless otherwise noted.
      */
     "timeSeries": {
-      // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the "table"
-      // property above)
+      // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the
+      // "table" property above)
       "some_table_name": {
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is 
         // created per every day
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
         "maxTables": 30,
-        // How many tables to have in the rolling view
+        // How many tables to have in the rolling view.
+        // Optional. Will default to maxTables if omitted.
         "tablesInView": 25,
-        // if this is set, use table name + this postfix to create a view that always points to the latest time series table
+        // if this is set, use table name + this postfix to create a view that always points to the latest time 
+        // series table. 
+        // Optional.
         "latestPostfix": "_latest",
         // Array of column definitions
         "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) ENCODE LZO DISTKEY", "..."],

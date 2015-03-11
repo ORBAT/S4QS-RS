@@ -161,6 +161,7 @@
       "other_table_name": {
         "period": 86400,
         "maxTables": 30,
+        "tablesInView": 25,
         "latestPostfix": "_latest",
         "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
