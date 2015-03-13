@@ -15,7 +15,7 @@ You can also use Javascript files as configuration files. See the [config](https
 
 S4QS-RS defaults to `NODE_ENV=development` if `NODE_ENV` is omitted.
 
-AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](http://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html) for more information.
+AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](http://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html) for more information. S4QS-RS needs IAM permissions to perform `redshift:DescribeClusters`.
 
 ### Configuration structure as a JSON file
 
@@ -79,7 +79,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // Minimum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
       "minToUpload": 25,
-      // Upload manifest at intervals of maxWaitSeconds seconds, regardless of amount of messages in them.
+      // Upload manifests at intervals of maxWaitSeconds seconds, regardless of how many messages they have.
       // Required.
       "maxWaitSeconds": 600,
       // Value of "mandatory" property of manifest items.
