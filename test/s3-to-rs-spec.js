@@ -147,29 +147,30 @@ describe("S3 to Redshift copier", function () {
     describe("_pruneTsTables", function() {
       it("should handle drop errors", function() {
         var tsm = newTSM.bind(this)()
-          , tableNames = _.times(tsm._options[table].maxTables + 2, function(n) {
+          , max = tsm._options[table].maxTables
+          , tableNames = _.times(max + 2, function(n) {
             return table + "_" + n;
           })
-          , listTables = this.sinon.stub(tsm, '_listTsTables').resolves(tableNames)
           , dropTable = this.sinon.stub(tsm, '_dropTables').rejects("nope")
           ;
-        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(2)).then(function() {
+
+        return expect(tsm._pruneTsTables(table, tableNames)).to.eventually.deep.equal(_.takeRight(tableNames, max)).then(function() {
           expect(dropTable).to.have.been.calledOnce;
-          expect(dropTable).to.have.been.calledWithMatch(tableNames.slice(0,2));
+          expect(dropTable).to.have.been.calledWithMatch(_.take(tableNames, 2));
         });
       });
 
       it("should drop oldest tables when pruning", function() {
         var tsm = newTSM.bind(this)()
-          , tableNames = _.times(tsm._options[table].maxTables + 2, function(n) {
+          , max = tsm._options[table].maxTables
+          , tableNames = _.times(max + 2, function(n) {
             return table + "_" + n;
           })
-          , listTables = this.sinon.stub(tsm, '_listTsTables').resolves(tableNames)
           , dropTable = this.sinon.stub(tsm, '_dropTables', Promise.resolve)
           ;
-        return expect(tsm._pruneTsTables(table)).to.eventually.deep.equal(tableNames.slice(2)).then(function() {
+        return expect(tsm._pruneTsTables(table, tableNames)).to.eventually.deep.equal(_.takeRight(tableNames, max)).then(function() {
           expect(dropTable).to.have.been.calledOnce;
-          expect(dropTable).to.have.been.calledWithMatch(tableNames.slice(0,2));
+          expect(dropTable).to.have.been.calledWithMatch(_.take(tableNames, 2));
         });
       });
     });
@@ -180,12 +181,15 @@ describe("S3 to Redshift copier", function () {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
 
-        var tsm = newTSM.bind(this)()
-          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
-          , updView = this.sinon.spy(tsm, "_updateView")
+        var tables = ["table1", "table2"]
+          , tsm = newTSM.bind(this)()
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return tsm.tsTableFor(table).then(function() {
           expect(updView).to.have.been.calledOnce;
+          expect(updView).to.have.been.calledWithMatch(table, ["table1", "table2"])
         });
       });
 
@@ -194,7 +198,10 @@ describe("S3 to Redshift copier", function () {
         clock = this.sinon.useFakeTimers(time);
 
         var tsm = newTSM.bind(this)()
+          , tables = ["table1", "table2"]
           , prune = this.sinon.stub(tsm, "_pruneTsTables").rejects(new Error("A HURR HURR HOI"))
+          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return expect(tsm.tsTableFor(table)).to.be.fulfilled;
       });
@@ -204,7 +211,9 @@ describe("S3 to Redshift copier", function () {
         clock = this.sinon.useFakeTimers(time);
 
         var tsm = newTSM.bind(this)()
-          , prune = this.sinon.stub(tsm, "_pruneTsTables").returns(Promise.resolve([]))
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
+          , updView = this.sinon.stub(tsm, "_updateView").resolves([])
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
           ;
         return tsm.tsTableFor(table).then(function() {
           expect(prune).to.have.been.calledOnce;
@@ -216,9 +225,16 @@ describe("S3 to Redshift copier", function () {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
 
-        var tsm = newTSM.bind(this)();
-        this.sinon.stub(tsm, "_pruneTsTables").returns(Promise.resolve([]));
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_ts_172800");
+        var tsm = newTSM.bind(this)()
+          , tables = ["table1", "table2"]
+          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
+        ;
+
+        tsm._postfix = "_postfix";
+
+        this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_ts_172800_postfix");
       });
     });
   });
