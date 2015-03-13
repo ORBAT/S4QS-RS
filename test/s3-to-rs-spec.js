@@ -234,7 +234,7 @@ describe("S3 to Redshift copier", function () {
         tsm._postfix = "_postfix";
 
         this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_ts_172800_postfix");
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_172800");
       });
     });
   });
