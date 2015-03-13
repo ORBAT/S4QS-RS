@@ -265,6 +265,25 @@ describe("S3 to Redshift copier", function () {
           , tables = ["table1", "table2"]
           , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
+          ;
+
+        tsm._postfix = "_postfix";
+
+        this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_172800");
+      });
+
+      it("should return table name when ts table exists", function() {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var err = new Error("dsajlkads");
+        err.code = "42P07";
+
+        var tsm = newTSM.bind(this)(err)
+          , tables = ["table1", "table2"]
+          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
         ;
 
         tsm._postfix = "_postfix";
