@@ -177,7 +177,26 @@ describe("S3 to Redshift copier", function () {
 
     describe("tsTableFor", function () {
 
-      it("should update view when a new TS table is created", function () {
+      it("should update view when a new TS table was not created", function () {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var err = new Error("dsajlkads");
+        err.code = "42P07";
+
+        var tables = ["table1", "table2"]
+          , tsm = newTSM.bind(this)(err)
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
+          ;
+        return tsm.tsTableFor(table).then(function() {
+          expect(updView).to.have.been.calledOnce;
+          expect(updView).to.have.been.calledWithMatch(table, ["table1", "table2"])
+        });
+      });
+
+      it("should update view when a new TS table was created", function () {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
         clock = this.sinon.useFakeTimers(time);
 
@@ -204,6 +223,23 @@ describe("S3 to Redshift copier", function () {
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return expect(tsm.tsTableFor(table)).to.be.fulfilled;
+      });
+
+      it("should not call _pruneTsTables when a new TS table was not created", function() {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+
+        var err = new Error("dsajlkads");
+        err.code = "42P07";
+
+        var tsm = newTSM.bind(this)(err)
+          , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
+          , updView = this.sinon.stub(tsm, "_updateView").resolves([])
+          , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
+          ;
+        return tsm.tsTableFor(table).then(function() {
+          expect(prune).to.not.have.been.called;
+        });
       });
 
       it("should call _pruneTsTables when a new TS table was created", function() {
@@ -587,7 +623,7 @@ describe("S3 to Redshift copier", function () {
         return Promise.props(c._manifestsPending).then(function () {
           expect(c._manifestsPending["table1"].isResolved()).to.be.true;
           expect(_delete).to.not.have.been.called;
-          expect(mfDelete).to.have.been.called;
+          expect(mfDelete).to.have.been.calledOnce;
         });
       });
 
@@ -598,11 +634,43 @@ describe("S3 to Redshift copier", function () {
 
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.reject(new Error("nope")));
-        this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
+        this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
         this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
+          expect(c._manifestsPending["table1"].isResolved()).to.be.true;
+        });
+      });
+
+      it("should delete the manifest when tsTableFor fails", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").resolves(mf.manifestURI);
+        this.sinon.stub(c, "_delete").resolves();
+        this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
+        this.sinon.stub(c._tsMgr, "tsTableFor").rejects(new Error("DERR"));
+
+        c._onManifest(mf);
+        return Promise.props(c._manifestsPending).then(function () {
+          expect(mf.delete).to.have.been.calledOnce;
+        });
+      });
+
+      it("should catch tsTableFor errors", function () {
+        var c = newCopier(null, null, null)
+          , mf = newManifest(true, 10, null, null, "table1")
+          ;
+
+        this.sinon.stub(c, "_connAndCopy").resolves(mf.manifestURI);
+        this.sinon.stub(c, "_delete").resolves();
+        this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
+        this.sinon.stub(c._tsMgr, "tsTableFor").rejects(new Error("DERR"));
+
+        c._onManifest(mf);
+        return expect(Promise.props(c._manifestsPending)).to.be.fulfilled.then(function () {
           expect(c._manifestsPending["table1"].isResolved()).to.be.true;
         });
       });
