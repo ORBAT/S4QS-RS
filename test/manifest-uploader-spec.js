@@ -353,7 +353,7 @@ describe("Manifest uploading", function () {
       m._push(msgs[0]);
       expect(m._addAll(msgs.slice(1))).to.equal(5);
 
-      expect(m.uris).to.deep.equal(mup._messagesToURIs(msgs));
+      expect(m.uris).to.deep.equal(ut.messagesToURIs(msgs));
     });
 
     it("should generate correct-looking JSON", function () {
@@ -369,7 +369,7 @@ describe("Manifest uploading", function () {
   describe("toUris", function () {
     it("Should turn SQS messages to URIs", function () {
       var msgs = newSQSMsg(2).Messages.concat([null, ""])
-        , uris = mup._messagesToURIs(msgs)
+        , uris = ut.messagesToURIs(msgs)
         , uri1 = msgs[0]._s3Event.s3URIs()[0]
         , uri2 = msgs[1]._s3Event.s3URIs()[0]
         ;
@@ -377,72 +377,6 @@ describe("Manifest uploading", function () {
       expect(uris).to.have.length(2);
       expect(uris[0]).to.equal(uri1);
       expect(uris[1]).to.equal(uri2);
-
-
     });
   });
-
-
-  describe("_eventToS3URIs", function () {
-
-    beforeEach(function () {
-      event = {
-        "Records": [
-          {
-            "eventVersion": "2.0",
-            "eventSource": "aws:s3",
-            "awsRegion": "us-east-1",
-            "eventTime": "2015-01-30T14:49:11.286Z",
-            "eventName": "ObjectCreated:Copy",
-            "userIdentity": {
-              "principalId": "AWS:QUUX"
-            },
-            "requestParameters": {
-              "sourceIPAddress": "10.10.10.10"
-            },
-            "responseElements": {
-              "x-amz-request-id": "ABCDEF012345",
-              "x-amz-id-2": "aGVycCBkZXJw"
-            },
-            "s3": {
-              "s3SchemaVersion": "1.0",
-              "configurationId": "SNSCreationEvent",
-              "bucket": {
-                "name": "some-bucket-name",
-                "ownerIdentity": {
-                  "principalId": "QUUX"
-                },
-                "arn": "arn:aws:s3:::some-bucket-name"
-              },
-              "object": {
-                "key": "someprefix/some.stuff.here/2015-01-30/some.stuff.here-p-9-2015-01-30-0044120221.txt.gz",
-                "size": 2254780
-              }
-            }
-          }
-        ]
-      };
-    });
-
-    it("Should return an empty array when S3 schema version doesn't match", function () {
-      event.Records[0].s3.s3SchemaVersion = "3.0";
-      expect(mup._eventToS3URIs(event)).to.deep.equal([]);
-    });
-
-    it("Should return an empty array when event version doesn't match", function () {
-      event.Records[0].eventVersion = "3.0";
-      expect(mup._eventToS3URIs(event)).to.deep.equal([]);
-    });
-
-    it("Should return an empty array when no records are found", function () {
-      expect(mup._eventToS3URIs({Records: []})).to.deep.equal([]);
-    });
-
-    it("Should convert S3 events to S3 URIs", function () {
-      var uris = mup._eventToS3URIs(event);
-      var wanted = "s3://some-bucket-name/someprefix/some.stuff.here/2015-01-30/some.stuff.here-p-9-2015-01-30-0044120221.txt.gz";
-      expect(uris[0]).to.equal(wanted);
-    });
-  });
-
 });
