@@ -856,38 +856,6 @@ describe("S3 to Redshift copier", function () {
     });
   });
 
-  describe("_tableStrToNamer", function () {
-
-    it("Should handle strings", function () {
-      var fn = s3t._tableStrToNamer("qux");
-      var uri = "s3://some-bucket/someprefix/herp.derp.durr/2015-02-02/herp.derp.durr-p-7-2015-02-02-0062210428.txt.gz";
-      expect(fn(uri)).to.equal('qux');
-    });
-
-    it("Should handle regexen", function () {
-      var fn = s3t._tableStrToNamer("/s3:\/\/.*?\/someprefix\/(.*?)\//i");
-      var uri = "s3://some-bucket/someprefix/herp.derp.durr/2015-02-02/herp.derp.durr-p-7-2015-02-02-0062210428.txt.gz";
-      expect(fn(uri)).to.equal('herp_derp_durr');
-    });
-  });
-
-  describe("_URIToTbl", function () {
-    var re = new RegExp("s3:\/\/.*?\/someprefix\/(.*?)\/");
-    var fn = _.partial(s3t._URIToTbl, re);
-    it("Should correctly transform S3 URI to a table name", function () {
-      var uri = "s3://some-bucket/someprefix/herp.derp.durr/2015-02-02/herp.derp.durr-p-7-2015-02-02-0062210428.txt.gz";
-      expect(fn(uri)).to.equal('herp_derp_durr');
-
-      var uri2 = "s3://some-bucket/someprefix/doink/2015-02-02/doink-p-7-2015-02-02-0062210428.txt.gz";
-      expect(fn(uri2)).to.equal('doink');
-    });
-
-    it("Should throw if URI can't be turned into a table name", function () {
-      var uri = "s3://hurrr/derr/durr";
-      expect(fn.bind(null, uri)).to.throw();
-    });
-  });
-
   describe("_copyParamsTempl", function() {
     function checkPrelude(templ) {
       expect(templ).to.match(new RegExp("^copy %s from .*", "i"));

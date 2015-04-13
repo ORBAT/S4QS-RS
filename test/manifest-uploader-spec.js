@@ -43,7 +43,7 @@ describe("Manifest uploading", function () {
   var manifBucket = "manif-bukkit"
     , manifPrefix = "manif-prefix/"
     , msgPrefix = "msg-prefix/"
-    , grouper = s3u._tableStrToNamer("/s3:\/\/.*?\/(.*?)\//i")
+    , grouper = ut.tableStrToNamer("/s3:\/\/.*?\/(.*?)\//i")
   ;
 
   function newSQSMsg(n, prefix) {

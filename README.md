@@ -111,7 +111,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // Redshift schema to use
       "schema": "myschema",
       /* 
-       the "table" property is used to set the Redshift table name. This can be either a string
+       the "table" property is used to build the "base" of the Redshift table name. table can be either a string
        like "my_table_name" or a regular expression (which must start and end with a /).
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group 
        will be used as the table name.
@@ -119,9 +119,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
        When using a regex, periods in the S3 URI are converted to underscores but that's it.
        Feed it weird URIs and weird stuff will probably happen. You have been warned.
 
-       The example regex and tablePostfix combination would turn an URI like
-       s3://bucketname/whatevs/this.will.be.the.table.name/qwerasdf.csv.gz
-       to this_will_be_the_table_name_devel.
+       The regex, tablePostfix and timeSeries settings in this example would turn URIs like
+       s3://bucketname/whatevs/some.table.name/.*
+       to time series tables that have names like "some_table_name_devel_ts_1428883200",
+       and the rolling view would have the name "some_table_name_view_devel".
 
        If you use Javascript configuration files, you can specify a function
        for "table". The function must take an S3 URI and output a valid
