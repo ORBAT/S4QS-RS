@@ -8,6 +8,7 @@ var p = require('./lib/sqs-poller');
 var aws = require('aws-sdk');
 var s3rs = require('./lib/s3-to-rs');
 var rest = require('./lib/rest');
+var ut = require('./lib/utils');
 var S3Copier = s3rs.S3Copier;
 var pg = require('pg');
 var _ = require('lodash');
@@ -42,23 +43,27 @@ if(!credentials) {
 }
 
 
+var copierOpts = config.get("S3Copier");
+
 var sqs = new aws.SQS({region: config.get('SQS.region'), params: config.get('SQS.params')});
 
 var s3 = new aws.S3(config.get("S3Copier.S3"));
 
 var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 
-var poller = new p.Poller(sqs, pollerOpts);
+var tbl = copierOpts.copyParams.table;
+var namerFn = _.isString(tbl) ? ut.tableStrToNamer(tbl) : tbl;
+var knownNames = _.keys(config.get("S3Copier.timeSeries"));
 
-var opts = config.get("S3Copier");
+pollerOpts.filter = ut.nameFilterFnFor(knownNames, namerFn);
+
+var poller = new p.Poller(sqs, pollerOpts);
 
 var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
+copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 
-
-opts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
-
-var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, opts.copyParams, opts);
+var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, copierOpts.copyParams, copierOpts);
 
 
 function cleanup(sig) {
