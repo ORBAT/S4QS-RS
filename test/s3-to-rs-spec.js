@@ -144,6 +144,44 @@ describe("S3 to Redshift copier", function () {
       return new s3t.TimeSeriesManager(usingPg, schema, "", options);
     }
 
+    describe("_selectFor", function () {
+      it("should return a proper SELECT when a table has missing columns", function() {
+        var tsm = newTSM.bind(this)();
+        expect(tsm._selectFor(table, ["a", "b", "e"], ["a", "b", "c" , "d", "e", "f"]).toLowerCase())
+          .to.equal("select a, b, null as c, null as d, e, null as f from " + table);
+      });
+    });
+
+    describe("_columnsForTables", function () {
+      it("should return object with table names and their columns", function () {
+        var tables = _.times(5, function(n) {
+            return "table_" + n;
+          })
+
+          , res = _.flatten(_.times(tables.length, function (tableN) {
+              return _.times(tableN + 1, function (colN) {
+                return {tablename: "table_" + tableN, column: "column_" + colN}
+              });
+            }))
+          , wanted = { table_0: [ 'column_0' ],
+            table_1: [ 'column_0', 'column_1' ],
+            table_2: [ 'column_0',
+                       'column_1',
+                       'column_2' ],
+            table_3: [ 'column_0',
+                       'column_1',
+                       'column_2',
+                       'column_3' ],
+            table_4: [ 'column_0',
+                       'column_1',
+                       'column_2',
+                       'column_3',
+                       'column_4' ] }
+          , tsm = newTSM.bind(this)(res);
+        return expect(tsm._columnsForTables(tables)).to.eventually.deep.equal(wanted);
+      });
+    });
+
     describe("_pruneTsTables", function() {
       it("should handle drop errors", function() {
         var tsm = newTSM.bind(this)()
