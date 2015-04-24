@@ -1,6 +1,8 @@
 # S4QS-RS
 S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
-documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention.
+documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention, and a view with a configurable amount of time series tables is created.
+
+The view creation is done so that adding or removing columns from time series tables doesn't cause the view to break; missing spots are filled in with `NULL as [missing_col_name]` in the view's queries.
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
@@ -9,7 +11,7 @@ See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/Setting
 `npm install -g s4qs-rs`
 
 ## Configuration
-S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: for example `NODE_ENV=production` would cause `./config/production.json` to be loaded.
+S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: for example `NODE_ENV=production` would cause `./config/production.json` to be loaded, and override the settings in `./config/default.json`.
 
 You can also use Javascript files as configuration files. See the [config](https://www.npmjs.com/package/config) NPM package documentation for more information.
 
@@ -29,6 +31,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   "SQS": {
     "poller": {
       // repeat the poll this many times when fetching new messages from SQS.
+      // You'll get at most repeatPoll * MaxNumberOfMessages messages at once.
       // Optional, defaults to 1.
       "repeatPoll": 5
     },
@@ -36,7 +39,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // Required.
     "region": "us-east-1",
     // parameters to pass to SQS. See http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html.
-    // Required.
+    // Required, and at least QueueUrl must be present.
     "params": {
       "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/some-queue-name",
       "WaitTimeSeconds": 20,
