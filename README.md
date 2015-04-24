@@ -2,7 +2,7 @@
 S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
 documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention, and a view with a configurable amount of time series tables is created.
 
-The view creation is done so that adding or removing columns from time series tables doesn't cause the view to break; missing spots are filled in with `NULL as [missing_col_name]` in the view's queries.
+View creation is done so that adding or removing columns from time series tables doesn't cause the view to break; missing spots are filled in with `NULL as [missing_col_name]` in the view's queries.
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
@@ -11,7 +11,37 @@ See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/Setting
 `npm install -g s4qs-rs`
 
 ## Configuration
-S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: for example `NODE_ENV=production` would cause `./config/production.json` to be loaded, and override the settings in `./config/default.json`.
+S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: For example `NODE_ENV=production` would cause `./config/production.json` to be loaded.
+
+`NODE_ENV`-specific configuration files will always override the default configuration. If `./config/default.json` is, for example
+
+```json
+  {
+    "SQS": {
+      "params": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/12345/prod-queue",
+        "MaxNumberOfMessages": 10
+      }
+    },
+    "S3Copier": {
+      "other": "stuff here"
+    }
+  }
+```
+
+and `./config/development.json` is
+
+```json
+  {
+    "SQS": {
+      "params": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/12345/dev-queue"
+      }
+    }
+  }
+```
+
+only `SQS.params.QueueUrl` would be overridden.
 
 You can also use Javascript files as configuration files. See the [config](https://www.npmjs.com/package/config) NPM package documentation for more information.
 
