@@ -225,7 +225,7 @@ describe("S3 to Redshift copier", function () {
         var tables = ["table1", "table2"]
           , tsm = newTSM.bind(this)(err)
           , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves(tables)
-          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return tsm.tsTableFor(table).then(function() {
@@ -241,7 +241,7 @@ describe("S3 to Redshift copier", function () {
         var tables = ["table1", "table2"]
           , tsm = newTSM.bind(this)()
           , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves(tables)
-          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return tsm.tsTableFor(table).then(function() {
@@ -257,7 +257,7 @@ describe("S3 to Redshift copier", function () {
         var tsm = newTSM.bind(this)()
           , tables = ["table1", "table2"]
           , prune = this.sinon.stub(tsm, "_pruneTsTables").rejects(new Error("A HURR HURR HOI"))
-          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
         return expect(tsm.tsTableFor(table)).to.be.fulfilled;
@@ -272,7 +272,7 @@ describe("S3 to Redshift copier", function () {
 
         var tsm = newTSM.bind(this)(err)
           , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
-          , updView = this.sinon.stub(tsm, "_updateView").resolves([])
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves([])
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
           ;
         return tsm.tsTableFor(table).then(function() {
@@ -286,7 +286,7 @@ describe("S3 to Redshift copier", function () {
 
         var tsm = newTSM.bind(this)()
           , prune = this.sinon.stub(tsm, "_pruneTsTables").resolves([])
-          , updView = this.sinon.stub(tsm, "_updateView").resolves([])
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves([])
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
           ;
         return tsm.tsTableFor(table).then(function() {
@@ -301,7 +301,7 @@ describe("S3 to Redshift copier", function () {
 
         var tsm = newTSM.bind(this)()
           , tables = ["table1", "table2"]
-          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
 
@@ -320,7 +320,7 @@ describe("S3 to Redshift copier", function () {
 
         var tsm = newTSM.bind(this)(err)
           , tables = ["table1", "table2"]
-          , updView = this.sinon.stub(tsm, "_updateView").resolves(tables)
+          , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
         ;
 
