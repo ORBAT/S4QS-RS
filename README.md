@@ -1,8 +1,8 @@
 # S4QS-RS
 S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
-documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention, and a view with a configurable amount of time series tables is created.
+documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention, and rolling views with a configurable amount of time series tables are created.
 
-View creation is done so that adding or removing columns from time series tables doesn't cause the view to break; missing spots are filled in with `NULL as [missing_col_name]` in the view's queries.
+View creation is done so that adding or removing columns from time series tables doesn't break the view; missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
@@ -202,13 +202,12 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
         "maxTables": 30,
-        // How many tables to have in the rolling view.
+        // How many rolling views to create, and how many tables each view
+        // should contain.
+        // The example would create 4 views with lengths 1, 5, 15 and 30.
+        // Can be either an array or a single number.
         // Optional. Will default to maxTables if omitted.
-        "tablesInView": 25,
-        // if this is set, use table name + this postfix to create a view that always points to the latest time 
-        // series table. 
-        // Optional.
-        "latestPostfix": "_latest",
+        "tablesInView": [1, 5, 15, 30],
         // Array of column definitions
         "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) ENCODE LZO DISTKEY", "..."],
         // Array of table attributes
@@ -217,8 +216,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       "other_table_name": {
         "period": 86400,
         "maxTables": 30,
-        "tablesInView": 25,
-        "latestPostfix": "_latest",
+        "tablesInView": [1, 5, 15, 30],
         "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
