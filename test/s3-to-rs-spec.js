@@ -114,16 +114,16 @@ describe("S3 to Redshift copier", function () {
 
   describe("TimeSeriesManager", function () {
 
-    var options
+    var tsOpts
       , schema = "myschema"
       ;
 
     beforeEach(function () {
-      options = {};
-      options[table] = {
+      tsOpts = {};
+      tsOpts[table] = {
         period: 60 * 60 * 24
-        , latestPostfix : "_latest"
-        , maxTables: 30
+        , maxTables: 5
+        , tablesInView: [1, 2, 4]
         , columns: ["col_a int encode lzo primary key"
           , "col_b bigint encode bytedict not null"
           , "col_c varchar(24) encode lzo not null"]
@@ -141,7 +141,7 @@ describe("S3 to Redshift copier", function () {
         return Promise.using(ut.getPgClient(fp, "postgres://dasjkdsa"), fn);
       };
 
-      return new s3t.TimeSeriesManager(usingPg, schema, "", options);
+      return new s3t.TimeSeriesManager(usingPg, schema, "", tsOpts);
     }
 
     describe("_selectFor", function () {
@@ -210,6 +210,73 @@ describe("S3 to Redshift copier", function () {
           expect(dropTable).to.have.been.calledOnce;
           expect(dropTable).to.have.been.calledWithMatch(_.take(tableNames, 2));
         });
+      });
+    });
+
+    describe("_updateViews", function () {
+      it("should call _createView", function () {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+        var tsm = newTSM.bind(this)()
+          , tables = _.times(tsOpts[table].maxTables, function(n) {
+            return "table_" + n;
+          })
+          , colMap = _.reduce(tables, function(acc, v) {
+            acc[v] = _.times(5, function (n) {
+              return "column_" + n;
+            });
+            return acc;
+          }, {})
+          , columnsForTables = this.sinon.stub(tsm, "_columnsForTables").resolves(colMap)
+          , createView = this.sinon.stub(tsm, "_createView", function(name, tbls, colMap) {
+            return Promise.resolve(tbls);
+          })
+        // turn tablesInView to an array of arrays of table names, corresponding to views & their tables
+          , viewTbls = _.map(tsOpts[table].tablesInView, _.partial(_.takeRight, tables))
+          ;
+        tsm._postfix = "_postfix";
+        return tsm._updateViews(table, tables)
+          .then(function () {
+            // should have been called with n newest tables
+            expect(createView).to.have.callCount(tsOpts[table].tablesInView.length)
+            _.each(viewTbls, function(viewTbl) {
+              expect(createView).to.have.been.calledWithMatch(table + "_view_" + viewTbl.length, viewTbl, colMap);
+            })
+
+          })
+          ;
+
+      });
+
+      it("should get columns for all tables that participate in views", function () {
+        var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
+        clock = this.sinon.useFakeTimers(time);
+        var tsm = newTSM.bind(this)()
+          , tables = _.times(tsOpts[table].maxTables, function(n) {
+            return "table_" + n;
+          })
+          , columnsForTables = this.sinon.stub(tsm, "_columnsForTables").resolves(_.reduce(tables, function(acc, v) {
+            acc[v] = _.times(5, function (n) {
+              return "column_" + n;
+            });
+            return acc;
+          }, {}))
+          , createView = this.sinon.stub(tsm, "_createView", function(name, tbls, colMap) {
+            return Promise.resolve(tbls);
+          })
+        // turn tablesInView to an array of arrays of table names, corresponding to views & their tables
+          , viewTbls = _.map(tsOpts[table].tablesInView, _.partial(_.takeRight, tables))
+          ;
+
+        return expect(tsm._updateViews(table, tables))
+          .to.eventually.deep.equal(tables)
+          .then(function () {
+            // should have been called with n newest tables
+            expect(columnsForTables).to.have.been.calledWithExactly(_.takeRight(tables,
+              _.max(tsOpts[table].tablesInView)))
+          })
+          ;
+
       });
     });
 
