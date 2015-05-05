@@ -32,8 +32,62 @@ describe("SQS poller", function() {
   }
 
   function newPoller(rcv, del) {
-    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn});
+    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.2, repeatPoll: 3});
   }
+
+  describe("messageStream", function () {
+    var clock;
+
+    afterEach(function () {
+      if (clock) {
+        clock.restore();
+        clock = null;
+      }
+    });
+
+    it("should call _rcv multiple times", function (done) {
+      clock = this.sinon.useFakeTimers(1000);
+      var sm = newSQSMsg(10).Messages
+        , p = newPoller()
+        ;
+
+      this.sinon.stub(p, "_rcv").resolves(sm);
+
+      var count = 0;
+      p.messageStream.each(function (msg) {
+        expect(msg).to.deep.equal(sm[count % sm.length]);
+
+        count++;
+        if(count >= 30) {
+          p.messageStream.end();
+          done();
+        }
+      });
+    });
+
+    it("should stream messages it gets from _rcv", function (done) {
+      clock = this.sinon.useFakeTimers(1000);
+      var sm = newSQSMsg(10).Messages
+        , p = newPoller()
+        ;
+
+      this.sinon.stub(p, "_rcv").resolves(sm);
+
+      var count = 0;
+      p.messageStream.each(function (msg) {
+        expect(msg).to.deep.equal(sm[count % sm.length]);
+
+        count++;
+        if(count >= 60) {
+          p.messageStream.end();
+          done();
+        }
+      });
+    });
+
+
+
+  });
 
   describe("deleteMsgs", function () {
     it("Should return an empty promise when given an empty array", function () {
@@ -136,7 +190,7 @@ describe("SQS poller", function() {
         ;
       this.sinon.stub(p, "deleteMsgs").resolves();
 
-      expect(p._rcv()).to.eventually.deep.equal([]);
+      return expect(p._rcv()).to.eventually.deep.equal([]);
     });
 
     it("should delete messages that don't pass the filter function", function () {
@@ -152,29 +206,22 @@ describe("SQS poller", function() {
     it("should return a promise of messages from SQS", function() {
       var sm = newSQSMsg(10);
       var p = newPoller({event: "success", content: {data: sm}});
-      expect(p._rcv()).to.eventually.deep.equal(sm.Messages);
+      return expect(p._rcv()).to.eventually.deep.equal(sm.Messages);
     });
 
     it("should return a promise of [] when the SQS response contains nothing", function() {
       var p = newPoller({event: "success", content: null});
-      expect(p._rcv()).to.eventually.deep.equal([]);
+      return expect(p._rcv()).to.eventually.deep.equal([]);
     });
 
     it("should return a promise of [] when the SQS response contains no messages", function() {
       var p = newPoller({event: "success", content: {data: {}}});
-      expect(p._rcv()).to.eventually.deep.equal([]);
+      return expect(p._rcv()).to.eventually.deep.equal([]);
     });
 
     it("should return a promise of [] when a request emits 'error'", function() {
       var p = newPoller({event: "error", content: new Error("I'M DYIN' HERE")});
-      p.on('error', function () {});
-      expect(p._rcv()).to.eventually.deep.equal([]);
-    });
-
-    it("should make Poller emit an error when a request emits 'error'", function(done) {
-      var p = newPoller({event: "error", content: new Error("I'M DYIN' HERE")});
-      p.on('error', done.bind(null,null));
-      p._rcv();
+      return expect(p._rcv()).to.be.rejectedWith("I'M DYIN' HERE");
     });
   });
 });
