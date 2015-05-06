@@ -3,6 +3,7 @@
  */
 
 
+var $ = require('highland');
 var s3u = require('../lib/s3-to-rs');
 var ut = require('../lib/utils');
 var mup = require('../lib/manifest-uploader');
@@ -67,187 +68,27 @@ describe("Manifest uploading", function () {
 
   describe("Uploader", function () {
     function newUploader(minUp, mwt, put, del) {
-      var uploader = new mup.Uploader(new tu.FakeS3(put, del), {mandatory: true, minToUpload: minUp, maxWaitSeconds: mwt,
+      return new mup.Uploader(new tu.FakeS3(put, del), {mandatory: true, minToUpload: minUp, maxWaitSeconds: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
-      uploader._spy = sinon.spy();
-      uploader.on('manifest', uploader._spy.bind(uploader));
-      return uploader;
     }
 
-    it("should periodically upload manifests even if minToUpload hasn't been reached", function () {
-      clock = this.sinon.useFakeTimers();
-      var up = newUploader(20,1)
-        , _uploadCurrent = this.sinon.stub(up, "_uploadCurrent")
+    it("should periodically upload manifests even if minToUpload hasn't been reached", function (done) {
+      var up = newUploader(20,0.01)
+        , msgs = newSQSMsg(10, "table1/").Messages
         ;
-      up.start();
-      up.addMessages(newSQSMsg(10).Messages);
-      clock.tick(1000);
-      expect(_uploadCurrent).to.have.been.calledOnce;
+
+      this.sinon.stub(mup.Manifest.prototype, "_upload", function() {
+        this._resolve(this);
+        return this._promise;
+      });
+
+      $(msgs).through(up.msgsToManifests.bind(up)).sequence().each(function(mf) {
+        expect(mf._msgs).to.deep.equal(msgs);
+        done();
+      })
+
     });
 
-    describe("_uploadCurrent", function () {
-      it("should upload all current non-empty manifests", function (done) {
-        var up = newUploader(20,1, {eventName: "success", content: {data: "dsead"}})
-          , t2msgs = newSQSMsg(10, "table2/").Messages
-          , t3msgs = newSQSMsg(10, "table3/").Messages
-          , msgs = t2msgs.concat(t3msgs)
-          ;
-
-        up.addMessages(msgs);
-        up._newManifest("table1");
-        this.sinon.spy(up._manifestGroups["table1"], "_upload");
-        var count = 0;
-        up.on('manifest', function(mf) {
-          expect(mf.table).to.match(/table2|table3/);
-          count++;
-          if(count == 1) {
-            expect(up._manifestGroups["table1"]._upload).to.not.have.been.called;
-            done()
-          }
-        });
-
-        up._uploadCurrent();
-      });
-    });
-
-    describe("_uploadGroup", function () {
-
-      it("should upload emit 'error' on failed upload", function (done) {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          , error = new Error("not today you don't")
-          ;
-
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"]
-          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.reject(error))
-          ;
-
-        up.on('error', function (err, mf) {
-          expect(mf).to.deep.equal(manif);
-          expect(err).to.deep.equal(error);
-          done();
-        });
-        up._uploadGroup("table2");
-      });
-
-      it("should emit 'manifest' on successful upload", function (done) {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          ;
-
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"]
-          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.resolve(manif))
-          ;
-
-        up.on('manifest', function (mf) {
-          expect(mf).to.deep.equal(manif);
-          done();
-        });
-        up._uploadGroup("table2");
-      });
-
-      it("should not upload manifests if nobody's listening to 'manifest'", function () {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          ;
-
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"]
-          , manifUpl = this.sinon.stub(manif, "_upload").returns(Promise.resolve(manif))
-          , manifDel = this.sinon.stub(manif, "delete").returns(Promise.resolve(manif.manifestURI))
-          ;
-
-        up.removeAllListeners("manifest");
-        var p = up._uploadGroup("table2");
-
-        return p.then(function() {
-          expect(manifUpl).to.not.have.been.called;
-        });
-      });
-
-      it("should delete already uploaded manifests if nobody's listening to 'manifest' when the upload finishes", function () {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          ;
-
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"]
-          , deferred = defer()
-          , manifUpl = this.sinon.stub(manif, "_upload").returns(deferred.promise)
-          , manifDel = this.sinon.stub(manif, "delete").returns(Promise.resolve(manif.manifestURI))
-          ;
-
-        var p = up._uploadGroup("table2");
-
-        up.removeAllListeners("manifest");
-
-        deferred.resolve(manif);
-
-        return p.then(function() {
-          expect(manifDel).to.have.been.calledOnce;
-        });
-      });
-
-      it("should upload manifests", function () {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          ;
-
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"]
-          , manifUpl = this.sinon.stub(manif, '_upload').returns(Promise.resolve(manif))
-          ;
-
-        up._uploadGroup("table2");
-
-        expect(manifUpl).to.have.been.calledOnce;
-      });
-
-      it("should create a new manifest before staring an upload", function () {
-        var up = newUploader(20,1)
-          , msgs = newSQSMsg(15, "table2/").Messages
-          ;
-        up.addMessages(msgs);
-
-        var manif = up._manifestGroups["table2"];
-
-        up._uploadGroup("table2");
-        expect(up._manifestGroups["table2"]).to.not.deep.equal(manif);
-      });
-    });
-
-    describe("addMessages", function () {
-
-      it("should upload a group once it has the required amount of items", function () {
-        var up = newUploader(20,1)
-          , t1msgs = newSQSMsg(3, "table1/").Messages
-          , t2msgs = newSQSMsg(25, "table2/").Messages
-          , msgs = t1msgs.concat(t2msgs)
-          , _uploadGroup = this.sinon.stub(up, "_uploadGroup")
-          ;
-        up.addMessages(msgs);
-        expect(_uploadGroup).to.have.been.calledOnce;
-        expect(_uploadGroup).to.have.been.calledWithMatch("table2");
-      });
-
-      it("should group messages by their corresponding table name", function () {
-        var up = newUploader(20,1)
-          , t1msgs = newSQSMsg(3, "table1/").Messages
-          , t2msgs = newSQSMsg(3, "table2/").Messages
-          , msgs = t1msgs.concat(t2msgs)
-        ;
-        up.addMessages(msgs);
-        expect(up._manifestGroups["table1"].msgs).to.deep.equal(t1msgs);
-        expect(up._manifestGroups["table2"].msgs).to.deep.equal(t2msgs);
-      });
-    });
   });
 
 
