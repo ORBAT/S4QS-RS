@@ -14,8 +14,13 @@ var pg = require('pg');
 var _ = require('lodash');
 var config = require('config');
 var Promise = require('bluebird');
-var debug = require('debug')('s4qs-rs:s4qs-app');
-var error = require('debug')('s4qs-rs:s4qs-app:error');
+var dbg = require('debug');
+var _enabledOrig = dbg.enabled; // NOTE: temporarily force debug logging on
+dbg.enabled = function(ns) {
+  if(/s4qs/.test(ns)) return true; else return _enabledOrig(ns);
+};
+var debug = dbg('s4qs-rs:s4qs-app');
+var error = dbg('s4qs-rs:s4qs-app:error');
 
 error.log = console.error;
 
