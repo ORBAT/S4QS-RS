@@ -6,7 +6,11 @@
   // Optional.
   "SQS": {
     "poller": {
-      // repeat the poll this many times when fetching new messages from SQS.
+      // interval between SQS message polls must be at least this.
+      // Required.
+      "pollIntervalSeconds": 300,
+      // repeat the poll this many times when fetching new messages from SQS,
+      // fetching a maximum of repeatPoll * MaxNumberOfMessages in total.
       // Optional, defaults to 1.
       "repeatPoll": 5
     },
@@ -75,9 +79,6 @@
     "LRU": {
       "max": 1000
     },
-    // how often to poll for new messages from SQS.
-    // Required.
-    "pollIntervalSeconds": 300,
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
