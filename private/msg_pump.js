@@ -2,6 +2,9 @@
   This script reads messages from one SQS queue, sends them to another queue and then deletes them from the original.
   The first command line argument must be the region, the second the source queue URL and the third the destination
   queue URL.
+
+ node private/msg_pump.js us-east-1 https://sqs.us-east-1.amazonaws.com/12398543789/from-this-queue \
+ https://sqs.us-east-1.amazonaws.com/12398543789/to-this-queue
  */
 
 var Promise = require('bluebird');
