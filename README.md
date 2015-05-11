@@ -109,10 +109,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
-      // Minimum number of URIs to have in each manifest (see maxWaitSeconds)
+      // Maximum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
-      "minToUpload": 25,
-      // Upload manifests at intervals of maxWaitSeconds seconds, regardless of how many messages they have.
+      "maxToUpload": 25,
+      // Upload manifests at intervals of maxWaitSeconds seconds, as long as they have over 0 messages.
       // Required.
       "maxWaitSeconds": 600,
       // Value of "mandatory" property of manifest items.

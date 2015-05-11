@@ -60,7 +60,7 @@
     "manifestUploader": {
       // Minimum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
-      "minToUpload": 25,
+      "maxToUpload": 25,
       // Upload manifest at intervals of maxWaitSeconds seconds, regardless of amount of messages in them.
       // Required.
       "maxWaitSeconds": 600,
