@@ -17,7 +17,8 @@
     // SQS region.
     // Required.
     "region": "us-east-1",
-    // parameters to pass to SQS. See http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html.
+    // parameters to pass to SQS. Must have at least QueueUrl, other parameters are optional.
+    // See http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html.
     // Required.
     "params": {
       "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/some-queue-name",
@@ -95,7 +96,8 @@
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group 
        will be used as the table name.
 
-       When using a regex, periods in the S3 URI are converted to underscores but that's it.
+       When using a regex, periods in the S3 URI are converted to underscores, but that's it for
+       sanitization.
        Feed it weird URIs and weird stuff will probably happen. You have been warned.
 
        The example regex and tablePostfix combination would turn an URI like

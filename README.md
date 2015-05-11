@@ -1,10 +1,11 @@
 # S4QS-RS
-S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html)
-documentation for more information.) Data is copied into time series tables with configurable rotation periods and retention, and rolling views with a configurable amount of time series tables are created.
-
-View creation is done so that adding or removing columns from time series tables doesn't break the view; missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
+S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html) documentation for more information.)
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
+
+Data is copied into time series tables with configurable rotation periods and retention, and multiple rolling views with different periods can be created. View creation is done so that adding or removing columns from time series tables doesn't break the view; missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
+
+More details about how S4QS-RS works in the [configuration section](#configuration).
 
 ## Installation
 
@@ -81,10 +82,14 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // AWS Redshift options.
     // Required.
     "Redshift": {
-      // if the Redshift cluster's status is anything but "available", try checking its status at intervals
-      // of clusterAvailCheckInterval seconds until it's back up. Set this to -1 to bail out if the cluster
-      // becomes unavailable.
-      // Optional. Defaults to -1.
+      /*if the Redshift cluster's status goes to anything but "available", 
+        pause all operation, and try checking its status at intervals of
+        clusterAvailCheckInterval. When cluster goes back up, resume 
+        everything.
+        
+        Set this to -1 to exit if the cluster becomes unavailable.
+
+        Optional. Defaults to -1. */
       "clusterAvailCheckInterval": 300,
       // Redshift connection string.
       // Required.
@@ -149,11 +154,11 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group 
        will be used as the table name.
 
-       When using a regex, periods in the S3 URI are converted to underscores but that's it.
-       Feed it weird URIs and weird stuff will probably happen. You have been warned.
+       When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization goes.
+       Feed it weird URIs and weird stuff will probably happen.
 
        The regex, tablePostfix and timeSeries settings in this example would turn URIs like
-       s3://bucketname/whatevs/some.table.name/.*
+       s3://bucketname/whatevs/some.table.name/somefilename.csv.gz
        to time series tables that have names like "some_table_name_devel_ts_1428883200",
        and the rolling view would have the name "some_table_name_view_devel".
 
@@ -170,6 +175,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       ],
       // parameters with arguments to COPY. 
       // Boolean arguments can be either true/false, "true"/"false" or "on"/"off".
+      // Can be overridden easily in NODE_ENV-specific configuration.
       // Technically optional, although you'll probably want some.
       "withParams": {
         "DELIMITER": "\\t",
