@@ -466,7 +466,6 @@ describe("S3 to Redshift copier", function () {
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
-          , poll = this.sinon.stub(c._poller, "poll")
           , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail")
           ;
 
@@ -480,7 +479,6 @@ describe("S3 to Redshift copier", function () {
         return c.start()
           .bind(this)
           .then(function () {
-            expect(poll).to.have.been.calledOnce;
             expect(uplStart).to.have.been.calledOnce;
             clock.tick(c._availCheckInterval * 1000);
           })
@@ -504,7 +502,6 @@ describe("S3 to Redshift copier", function () {
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
-          , poll = this.sinon.stub(c._poller, "poll")
           , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail")
           ;
 
@@ -559,7 +556,6 @@ describe("S3 to Redshift copier", function () {
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
-          , poll = this.sinon.stub(c._poller, "poll")
           , _isClusterAvail = this.sinon.stub(c, "_isClusterAvail").returns(Promise.resolve(false))
           , _availHandler = this.sinon.spy(c, "_availHandler")
           ;
