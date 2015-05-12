@@ -10,6 +10,7 @@ var debug = require('debug')('test-utils');
 var inspect = _.partialRight(util.inspect, {depth: 10});
 var sinon = require('sinon');
 var ut = require('../lib/utils');
+var $ = require('highland');
 var sinonAsPromised = require('sinon-as-promised')(Promise);
 
 var randomString = exports.randomString = function randomString(len) {
@@ -20,22 +21,9 @@ var randomString = exports.randomString = function randomString(len) {
 };
 
 var FakePoller = exports.FakePoller = function FakePoller(prefix) {
-  EventEmitter.call(this);
   this.handles = LRU(); // infinitely big
   this.prefix = prefix;
-};
-
-
-util.inherits(FakePoller, EventEmitter);
-
-FakePoller.prototype.poll = function poll() {
-  var ev = new SQSMessage(_.random(1, 10), "mah-bukkit", this.prefix);
-  var self = this;
-
-  _.each(ev.handles(), function (handle) {
-    self.handles.set(handle, true);
-  });
-  this.emit('messages', ev.Messages);
+  this.messageStream = $();
 };
 
 FakePoller.prototype.deleteMsgs = function(messages) {
