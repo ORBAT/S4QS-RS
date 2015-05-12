@@ -456,7 +456,7 @@ describe("S3 to Redshift copier", function () {
       return new tu.SQSMessage(n, "bucket", "prefix/");
     }
 
-    describe("_availHandler", function () {
+    describe.skip("_availHandler", function () {
 
       it("should restart S4QS when cluster becomes available again", function () {
 
@@ -568,7 +568,7 @@ describe("S3 to Redshift copier", function () {
 
       });
 
-      it("should not poll for messages if the redshift cluster is unavailable", function() {
+      it.skip("should not poll for messages if the redshift cluster is unavailable", function() {
         var c = newCopier(null, null, null, null, "rebooting")
           , uplStart = this.sinon.stub(c._uploader, 'start')
           , poll = this.sinon.stub(c._poller, 'poll')
@@ -697,7 +697,7 @@ describe("S3 to Redshift copier", function () {
           });
       });
 
-      it("should join pending manifest promises", function () {
+      it.skip("should join pending manifest promises", function () {
         var c = newCopier(null, null, null)
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
           , mf = newManifest(true, 10, null, null, "table1")
@@ -829,7 +829,7 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
-    describe("_onMsgs", function () {
+    describe.skip("_onMsgs", function () {
       it("should only give deduplicated messages to the uploader", function () {
         var c = newCopier(null, null, null)
           , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
