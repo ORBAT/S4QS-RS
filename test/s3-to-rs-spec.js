@@ -416,7 +416,7 @@ describe("S3 to Redshift copier", function () {
           }
           , pollIntervalS: 60
           , manifestUploader: {
-            "minToUpload": 10
+            "maxToUpload": 10
             , "maxWaitSeconds": 300
             , "mandatory": true
             , "bucket": "manifest-bukkit"
