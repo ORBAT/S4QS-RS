@@ -89,36 +89,16 @@ S3Event.prototype.s3URIs = function s3URIs() {
   });
 };
 
-var FakePg = exports.FakePg = function FakePg(connErr, queryErr, doneCb) {
-  this.connErr = connErr;
-  this.queryErr = queryErr;
-  this.doneCb = doneCb;
-  this.client = null;
-};
-
-FakePg.prototype.connect = function connect(connStr, cb) {
-  var self = this;
-
-
-  var client = {
-    query: sinon.stub().yields(self.queryErr)
-    , queryAsync: sinon.stub()
-    /*function query(query, cb) {
-      setImmediate(cb.bind(null, self.queryErr));
-    }*/
-  };
-
-  if(self.queryErr) {
-    client.queryAsync.rejects(self.queryErr);
+var FakePg = exports.FakePg = function FakePg(queryRes) {
+  this.queryErr = queryRes;
+  var fnName;
+  if(_.isError(queryRes)) {
+    fnName = "rejects";
   } else {
-    client.queryAsync.resolves();
+    fnName = "resolves";
   }
 
-  setImmediate(
-    function () {
-    self.client = client;
-    cb(self.connErr, client, self.doneCb);
-  });
+  this.queryAsync = sinon.stub()[fnName](this.queryErr);
 };
 
 var FakeAWSReq = exports.FakeAWSReq = function FakeAWSReq(eventName, content) {

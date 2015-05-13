@@ -33,7 +33,7 @@ function defer() {
 
 describe("S3 to Redshift copier", function () {
 
-  function stubPgResult(rows) {
+  function stubPgResult(rows, pg) {
 
     var p;
 
@@ -133,15 +133,9 @@ describe("S3 to Redshift copier", function () {
 
     function newTSM(queryRes) {
 
-      var fp = new tu.FakePg();
+      var fp = new tu.FakePg(queryRes);
 
-      stubPgResult.bind(this, queryRes)();
-
-      var usingPg = function(fn) {
-        return Promise.using(ut.getPgClient(fp, "postgres://dasjkdsa"), fn);
-      };
-
-      return new s3t.TimeSeriesManager(usingPg, schema, "", tsOpts);
+      return new s3t.TimeSeriesManager(fp, schema, "", tsOpts);
     }
 
     describe("_selectFor", function () {
@@ -177,7 +171,7 @@ describe("S3 to Redshift copier", function () {
                        'column_2',
                        'column_3',
                        'column_4' ] }
-          , tsm = newTSM.bind(this)(res);
+          , tsm = newTSM.bind(this)({rows: res});
         return expect(tsm._columnsForTables(tables)).to.eventually.deep.equal(wanted);
       });
     });
@@ -401,10 +395,10 @@ describe("S3 to Redshift copier", function () {
 
   describe("S3Copier", function () {
 
-    function newCopier(pgConnErr, pgQueryErr, pgDoneCb, s3Event, rsStatus) {
+    function newCopier(pgConnErr, pgQueryErr, s3Event, rsStatus) {
       s3Event = s3Event || {};
       var fakePoller = new tu.FakePoller("derr/some.stuff.here")
-        , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb || sinon.spy())
+        , fakePg = new tu.FakePg(pgQueryErr)
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
         , fakeRs = new tu.FakeRedshift("blaster", rsStatus || "available")
         , options = {
@@ -434,7 +428,7 @@ describe("S3 to Redshift copier", function () {
           }
         };
 
-      return new s3t.S3Copier(fakePoller, Promise.promisifyAll(fakePg), fakeS3, fakeRs, copyParams, options);
+      return new s3t.S3Copier(fakePoller, fakePg, fakeS3, fakeRs, copyParams, options);
     }
 
     function newManifest(mandatory, n, put, del, table) {
@@ -462,7 +456,7 @@ describe("S3 to Redshift copier", function () {
 
         clock = this.sinon.useFakeTimers();
 
-        var c = newCopier(null, null, null, null, "available")
+        var c = newCopier(null, null, null, "available")
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
@@ -498,7 +492,7 @@ describe("S3 to Redshift copier", function () {
 
         clock = this.sinon.useFakeTimers();
 
-        var c = newCopier(null, null, null, null, "available")
+        var c = newCopier(null, null, null, "available")
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
@@ -530,18 +524,18 @@ describe("S3 to Redshift copier", function () {
     describe("_isClusterAvail", function () {
 
       it("should return false if availability check fails", function () {
-        var c = newCopier(null, null, null, null, "resizing");
+        var c = newCopier(null, null, null, "resizing");
         this.sinon.stub(c._rs, "describeClustersAsync").returns(Promise.reject(new Error("nope nope nope nope")));
         return expect(c._isClusterAvail()).to.become.false;
       });
 
       it("should return false if cluster is not available", function () {
-        var c = newCopier(null, null, null, null, "resizing");
+        var c = newCopier(null, null, null, "resizing");
         return expect(c._isClusterAvail()).to.become.true;
       });
 
       it("should return true if cluster is available", function () {
-        var c = newCopier(null, null, null, null);
+        var c = newCopier(null, null, null);
         return expect(c._isClusterAvail()).to.become.true;
       });
     });
@@ -552,7 +546,7 @@ describe("S3 to Redshift copier", function () {
 
         clock = this.sinon.useFakeTimers();
 
-        var c = newCopier(null, null, null, null, "available")
+        var c = newCopier(null, null, null, "available")
           , uplStart = this.sinon.stub(c._uploader, "start")
           , uplStop = this.sinon.stub(c._uploader, "stop")
           , cStop = this.sinon.spy(c, "stop")
@@ -569,7 +563,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it.skip("should not poll for messages if the redshift cluster is unavailable", function() {
-        var c = newCopier(null, null, null, null, "rebooting")
+        var c = newCopier(null, null, null, "rebooting")
           , uplStart = this.sinon.stub(c._uploader, 'start')
           , poll = this.sinon.stub(c._poller, 'poll')
           , isClusterAvail = this.sinon.stub(c, "_isClusterAvail").returns(Promise.resolve(false))
@@ -583,7 +577,7 @@ describe("S3 to Redshift copier", function () {
 
     describe("stop", function () {
       it("should return a promise of pending manifests", function() {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           , def = defer()
           ;
@@ -611,7 +605,7 @@ describe("S3 to Redshift copier", function () {
       it("should delete duplicate messages", function () {
         var sm = newSQSMsg(10)
           , seen = sm.Messages.slice(0, 5)
-          , c = newCopier(null, null, null)
+          , c = newCopier(null, null)
           , deleteMsgs = this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve())
           ;
         _.each(_.pluck(seen, 'MessageId'), function(mid) {
@@ -628,7 +622,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should return a promise of an array of messages when no duplicates are found", function () {
         var sm = newSQSMsg(10)
-          , c = newCopier(null, null, null)
+          , c = newCopier(null, null)
           ;
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         expect(c._dedup(sm.Messages)).to.eventually.deep.equal(sm.Messages);
@@ -637,7 +631,7 @@ describe("S3 to Redshift copier", function () {
       it("should return a promise of an array of non-duplicate messages when deletion fails", function () {
         var sm = newSQSMsg(10)
           , seen = sm.Messages.slice(0, 5)
-          , c = newCopier(null, null, null)
+          , c = newCopier(null, null)
           ;
         _.each(_.pluck(seen, 'MessageId'), function(mid) {
           c._seenMsgs.set(mid, true);
@@ -650,7 +644,7 @@ describe("S3 to Redshift copier", function () {
       it("should return a promise of an array of non-duplicate messages when deletion succeeds", function () {
         var sm = newSQSMsg(10)
           , seen = sm.Messages.slice(0, 5)
-          , c = newCopier(null, null, null)
+          , c = newCopier(null, null)
           ;
         _.each(_.pluck(seen, 'MessageId'), function(mid) {
           c._seenMsgs.set(mid, true);
@@ -664,7 +658,7 @@ describe("S3 to Redshift copier", function () {
     describe("_markSeen", function () {
       it("should mark messages as seen", function () {
         var sm = newSQSMsg(10)
-          , p = newCopier(null, null, null)
+          , p = newCopier(null, null)
           , spy = this.sinon.spy(p._seenMsgs, "set")
           ;
         p._markSeen(sm.Messages);
@@ -676,7 +670,7 @@ describe("S3 to Redshift copier", function () {
     describe("_onManifest", function () {
 
       it("should not join fulfilled manifest promises", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
           , mf = newManifest(true, 10, null, null, "table1")
           , mf2 = newManifest(true, 10, null, null, "table1")
@@ -698,7 +692,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it.skip("should join pending manifest promises", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
           , mf = newManifest(true, 10, null, null, "table1")
           , mf2 = newManifest(true, 10, null, null, "table1")
@@ -730,7 +724,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should catch copy errors and not delete the messages but delete the manifest", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           , _delete = this.sinon.stub(c, "_delete").returns(Promise.resolve())
           , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
@@ -748,7 +742,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should catch message deletion errors", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           ;
 
@@ -764,7 +758,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should delete the manifest when tsTableFor fails", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           ;
 
@@ -780,7 +774,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should catch tsTableFor errors", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           ;
 
@@ -796,7 +790,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should catch manifest deletion errors", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
           ;
 
@@ -812,7 +806,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should set _manifestsPending", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , mf = newManifest(true, 10, null, null, "table1")
         ;
 
@@ -831,7 +825,7 @@ describe("S3 to Redshift copier", function () {
 
     describe.skip("_onMsgs", function () {
       it("should only give deduplicated messages to the uploader", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
           , sm = newSQSMsg(20).Messages
           , seen = sm.slice(0,10)
@@ -853,7 +847,7 @@ describe("S3 to Redshift copier", function () {
 
       it("should should schedule a new poll", function () {
         clock = this.sinon.useFakeTimers(1000);
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , _schedulePoll = this.sinon.stub(c, "_schedulePoll")
           , msgs = newSQSMsg(10).Messages
           ;
@@ -867,7 +861,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should give received messages to the manifest uploader", function () {
-        var c = newCopier(null, null, null)
+        var c = newCopier(null, null)
           , addMessages = this.sinon.stub(c._uploader, "addMessages")
           , msgs = newSQSMsg(5).Messages
         ;
@@ -882,7 +876,7 @@ describe("S3 to Redshift copier", function () {
 
     describe("_delete", function () {
       it("should call poller.deleteMsg", function () {
-        var c = newCopier(null, null, null);
+        var c = newCopier(null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.resolve());
         var msgs = new tu.SQSMessage(10, "gler", "flor").Messages;
         return expect(c._delete(msgs)).to.be.fulfilled.then(function () {
@@ -891,7 +885,7 @@ describe("S3 to Redshift copier", function () {
       });
 
       it("should not return a rejected promise on deletion error", function () {
-        var c = newCopier(null, null, null);
+        var c = newCopier(null, null);
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("welp")));
         return expect(c._delete(new tu.SQSMessage(10, "gler", "flor").Messages)).to.be.fulfilled;
       });
@@ -899,59 +893,23 @@ describe("S3 to Redshift copier", function () {
 
     describe("_connAndCopy", function () {
       it("should return a promise of the S3 URI on successful copy", function () {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, null, doneCb);
+        var c = newCopier(null, null);
         return expect(c._connAndCopy(s3URI, table)).to.become(s3URI);
       });
 
-      it("should connect to pg", function (done) {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, null, doneCb);
-        this.sinon.spy(c._pg, "connect");
-        return expect(c._connAndCopy(s3URI)).to.be.fulfilled
-          .then(function () {
-            expect(c._pg.connect).to.have.been.calledOnce.and.calledWith("postgres://bler");
-          }).should.notify(done);
-      });
-
       it("should do queries", function (done) {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, null, doneCb);
+        var c = newCopier(null, null);
         return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
           .then(function () {
-            expect(c._pg.client.queryAsync).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
+            expect(c._pg.queryAsync).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
               table, s3URI,
               copyParams.args.join(' ')));
           }).should.notify(done);
       });
 
-      it("Should return the client to the pool when a query succeeds", function (done) {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, null, doneCb);
-        return expect(c._connAndCopy(s3URI)).to.be.fulfilled
-          .then(function () {
-            expect(doneCb).to.have.been.calledOnce.and.calledWithExactly();
-          }).should.notify(done);
-      });
-
-      it("Should not return the client to the pool when a query fails", function (done) {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, new Error("query error"), doneCb);
-        return expect(c._connAndCopy(s3URI)).to.be.rejectedWith(Error, "query error")
-          .then(function () {
-            expect(doneCb).to.have.been.calledOnce.and.calledWith(c._pg.client);
-          }).should.notify(done);
-      });
-
-      it("should return a rejected promise on connection errors", function () {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(new Error("connection error"), null, doneCb);
-        return expect(c._connAndCopy(s3URI)).to.be.rejectedWith(Error, "connection error");
-      });
 
       it("should return a rejected promise on query errors", function () {
-        var doneCb = this.sinon.spy();
-        var c = newCopier(null, new Error("query error"), doneCb);
+        var c = newCopier(null, new Error("query error"));
         return expect(c._connAndCopy(s3URI)).to.be.rejectedWith(Error, "query error");
       });
     });

@@ -10,10 +10,10 @@ var s3rs = require('./lib/s3-to-rs');
 var rest = require('./lib/rest');
 var ut = require('./lib/utils');
 var S3Copier = s3rs.S3Copier;
-var pg = require('pg');
+var Promise = require('bluebird');
+var pg = Promise.promisifyAll(require('pg'));
 var _ = require('lodash');
 var config = require('config');
-var Promise = require('bluebird');
 var dbg = require('debug');
 var _enabledOrig = dbg.enabled; // NOTE: temporarily force debug logging on
 dbg.enabled = function(ns) {
@@ -68,26 +68,29 @@ var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 
-var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, copierOpts.copyParams, copierOpts);
+var pgClient = new pg.Client(config.get("S3Copier.Redshift.connStr"));
 
+pgClient.connectAsync().then(function() {
+  debug("Connected to Redshift");
+  var s3c = new S3Copier(poller, pgClient, s3, rs, copierOpts.copyParams, copierOpts);
+  function cleanup(sig) {
+    return function() {
+      console.error("\nsignal", sig +". Exiting. This may take a while.");
+      s3c.stop().done(function() {
+        console.error("Cleanup done");
+        process.exit(0);
+      });
+    };
+  }
 
-function cleanup(sig) {
-  return function() {
-    console.error("\nsignal", sig +". Exiting. This may take a while.");
-    s3c.stop().done(function() {
-      console.error("Cleanup done");
-      process.exit(0);
-    });
-  };
-}
+  _.each(['SIGTERM', 'SIGINT'], function(sig) {
+    process.on(sig, cleanup(sig));
+  });
 
-_.each(['SIGTERM', 'SIGINT'], function(sig) {
-  process.on(sig, cleanup(sig));
+  if(config.has("HTTPPort")) {
+    debug("Starting HTTP server on port " + config.get('HTTPPort'));
+    rest.app.listen(config.get("HTTPPort"));
+  }
+
+  s3c.start();
 });
-
-if(config.has("HTTPPort")) {
-  debug("Starting HTTP server on port " + config.get('HTTPPort'));
-  rest.app.listen(config.get("HTTPPort"));
-}
-
-s3c.start();
