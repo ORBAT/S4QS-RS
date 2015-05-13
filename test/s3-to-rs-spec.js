@@ -901,7 +901,7 @@ describe("S3 to Redshift copier", function () {
         var c = newCopier(null, null);
         return expect(c._connAndCopy(s3URI, table)).to.be.fulfilled
           .then(function () {
-            expect(c._pg.queryAsync).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
+            expect(c._pgClient.queryAsync).to.have.been.calledOnce.and.calledWithMatch(util.format("COPY %s FROM '%s' %s;",
               table, s3URI,
               copyParams.args.join(' ')));
           }).should.notify(done);
