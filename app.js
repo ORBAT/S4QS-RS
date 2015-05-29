@@ -11,7 +11,13 @@ var rest = require('./lib/rest');
 var ut = require('./lib/utils');
 var S3Copier = s3rs.S3Copier;
 var Promise = require('bluebird');
-var pg = Promise.promisifyAll(require('pg'));
+var pg = require('pg');
+
+Promise.promisifyAll(pg);
+
+pg.defaults.poolSize = 3;
+pg.defaults.poolIdleTimeout = 120;
+
 var _ = require('lodash');
 var config = require('config');
 var dbg = require('debug');
