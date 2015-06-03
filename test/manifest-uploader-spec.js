@@ -71,7 +71,6 @@ describe("Manifest uploading", function () {
       return new mup.Uploader(new tu.FakeS3(put, del), {mandatory: true, maxToUpload: minUp, maxWaitSeconds: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
-
     it("should periodically upload manifests even if maxToUpload hasn't been reached", function (done) {
       var up = newUploader(20,0.01)
         , msgs = newSQSMsg(10, "table1/").Messages
