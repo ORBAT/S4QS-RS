@@ -82,14 +82,14 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // AWS Redshift options.
     // Required.
     "Redshift": {
-      /*if the Redshift cluster's status goes to anything but "available", 
-        pause all operation, and try checking its status at intervals of
-        clusterAvailCheckInterval. When cluster goes back up, resume 
-        everything.
-        
-        Set this to -1 to exit if the cluster becomes unavailable.
+      /*if the Redshift cluster's status goes to anything but "available",
+       pause all operation, and try checking its status at intervals of
+       clusterAvailCheckInterval. When cluster goes back up, resume
+       everything.
 
-        Optional. Defaults to -1. */
+       Set this to -1 to exit if the cluster becomes unavailable.
+
+       Optional. Defaults to -1. */
       "clusterAvailCheckInterval": 300,
       // Redshift connection string.
       // Required.
@@ -128,7 +128,11 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       "bucket": "manifest-bucket",
       // Prefix for manifest keys.
       // Required.
-      "prefix": "s4qs/manifests/"
+      "prefix": "s4qs/manifests/",
+      // How many times uploads should be retried. Retries have a backoff of 1.5 * (nRetries-1) * 500ms, so the
+      // S4QS will throw an exception and die if the upload fails.
+      // Optional, will default to 0.
+      "retries": 4
     },
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
@@ -148,10 +152,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     "copyParams": {
       // Redshift schema to use
       "schema": "myschema",
-      /* 
+      /*
        the "table" property is used to build the "base" of the Redshift table name. table can be either a string
        like "my_table_name" or a regular expression (which must start and end with a /).
-       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group 
+       The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group
        will be used as the table name.
 
        When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization goes.
@@ -173,7 +177,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "GZIP",
         "TRUNCATECOLUMNS"
       ],
-      // parameters with arguments to COPY. 
+      // parameters with arguments to COPY.
       // Boolean arguments can be either true/false, "true"/"false" or "on"/"off".
       // Can be overridden easily in NODE_ENV-specific configuration.
       // Technically optional, although you'll probably want some.
@@ -185,13 +189,13 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "TIMEFORMAT": "auto"
       }
     },
-    /* 
+    /*
      S4QS-RS copies data into time series tables with a configurable time period.
      A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
-     series table is created. A configurable amount of old tables are retained, and old tables are dropped 
+     series table is created. A configurable amount of old tables are retained, and old tables are dropped
      when needed.
 
-     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match 
+     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match
      time series table configuration to incoming S3 files.
 
      See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
@@ -203,7 +207,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the
       // "table" property above)
       "some_table_name": {
-        // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is 
+        // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
         // created per every day
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
