@@ -74,10 +74,11 @@
       // Prefix for manifest keys.
       // Required.
       "prefix": "s4qs/manifests/",
-      // How many times uploads should be retried. Retries have a backoff of 1.5 * (nRetries-1) * 500ms, so the
-      // S4QS will throw an exception and die if the upload fails.
-      // Optional, will default to 0.
-      "retries": 4
+      // How many times uploads should be retried. Retries have a backoff of 1.5^nRetries * 1000ms, so the first
+      // retry will happen after 1000ms, the 2nd after 1500ms, the 3rd after 2250ms, 4th after 3375ms etc.
+      // S4QS will throw an exception and exit if the upload fails despite the retries.
+      // Optional, will default to 0, meaning S4QS will exit immediately on the first upload error.
+      "retries": 5
     },
     // LRU cache options. Used for message deduplication.
     // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
