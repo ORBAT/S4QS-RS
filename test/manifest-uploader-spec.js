@@ -56,13 +56,15 @@ describe("Manifest uploading", function () {
       , manifest = new mup.Manifest(s3, {mandatory:!!mandatory,
         bucket: manifBucket,
         prefix:manifPrefix,
-        table:table})
+        table:table,
+        retries:3
+      })
       ;
 
     n = n || 0;
 
     manifest._addAll(newSQSMsg(n).Messages);
-
+    manifest._retryBackoff = 10;
     return  manifest;
   }
 
@@ -71,6 +73,7 @@ describe("Manifest uploading", function () {
       return new mup.Uploader(new tu.FakeS3(put, del), {mandatory: true, maxToUpload: minUp, maxWaitSeconds: mwt,
         bucket: manifBucket, prefix: manifPrefix, grouper: grouper});
     }
+
     it("should periodically upload manifests even if maxToUpload hasn't been reached", function (done) {
       var up = newUploader(20,0.01)
         , msgs = newSQSMsg(10, "table1/").Messages
@@ -102,10 +105,34 @@ describe("Manifest uploading", function () {
 
     describe("_upload", function () {
 
-      it("should return a rejected promise if PUT fails", function () {
+      it("should retry with exponential backoff", function () {
         var m = newManifest(true, 1, {eventName: "error", content: new Error("eurgh")}, null, "some_table")
+          , putObject = this.sinon.spy(m._s3, "putObject")
           ;
-        return expect(m._upload()).to.be.rejectedWith("eurgh");
+        var start = Date.now();
+        return expect(m._upload()).to.be.rejected.then(function() {
+          expect(Date.now() - start).to.be.above(10 + 15 + 23); // 3 retries with 10ms initial backoff
+        });
+      });
+
+      it("should return a rejected promise if upload fails despite retries", function () {
+        var m = newManifest(true, 1, {eventName: "error", content: new Error("eurgh")}, null, "some_table")
+          , putObject = this.sinon.spy(m._s3, "putObject")
+          ;
+        return expect(m._upload()).to.be.rejectedWith("eurgh").then(function() {
+          expect(putObject).to.have.callCount(4); // 1st try + 3 retries
+        });
+      });
+
+      it("should retry failed uploads", function () {
+        var err = new Error("eurgh")
+          , m = newManifest(true, 1, {eventName: ["error", "error", "success"], content: [err, err, "yay"]}, null, "some_table")
+          , putObject = this.sinon.spy(m._s3, "putObject")
+          ;
+
+        return expect(m._upload()).to.eventually.deep.equal(m).then(function() {
+          expect(putObject).to.have.callCount(3); // 1 try + 2 retries, with the 3rd one succeeding
+        });
       });
 
       it("should call S3's putObject", function () {
@@ -128,7 +155,7 @@ describe("Manifest uploading", function () {
         var m = newManifest(true, 1, {eventName: "success", content: "yay"}, null, "some_table")
           ;
 
-        return expect(m._upload()).to.be.fulfilled.and.eventually.deep.equal(m);
+        return expect(m._upload()).to.eventually.deep.equal(m);
       });
     });
 

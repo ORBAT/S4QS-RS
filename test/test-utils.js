@@ -154,7 +154,31 @@ var FakeS3 = exports.FakeS3 = function FakeS3(put, del) {
 };
 
 FakeS3.prototype.putObject = function putObject(params) {
-  return new FakeAWSReq(this.put.eventName, this.put.content);
+  var name, content;
+
+  var evn = this.put.eventName;
+  if(_.isArray(evn)) {
+    if(evn.length > 1) {
+      name = evn.shift();
+    } else {
+      name = evn[0];
+    }
+  } else {
+    name = evn;
+  }
+
+  var cont = this.put.content;
+  if(_.isArray(cont)) {
+    if(cont.length > 1) {
+      content = cont.shift();
+    } else {
+      content = cont[0];
+    }
+  } else {
+    content = cont;
+  }
+
+  return new FakeAWSReq(name, content);
 };
 
 
