@@ -19,14 +19,16 @@
   ],
   "dependencies": {
     "aws-sdk": "2.x",
-    "lodash": "3.x",
     "bluebird": "2.x",
+    "config": "1.x",
     "debug": "2.x",
+    "express": "4.x",
+    "highland": "2.x",
+    "highland-errors-to": "^2.0.1",
+    "lodash": "3.x",
     "lru-cache": "2.5.x",
     "pg": "4.x",
-    "config": "1.x",
-    "express": "4.x",
-    "highland": "2.x"
+    "promise-pauser": "^1.0.0"
   },
   "devDependencies": {
     "mocha": "2.x",
