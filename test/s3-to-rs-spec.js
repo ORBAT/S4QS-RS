@@ -629,7 +629,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
 
-        c.started = true; // kluge to make S3Copier think it's been started without actually starting it
+        c.start();
 
         c._onManifest(mf);
         var p = c.stop().then(function (pend) {
