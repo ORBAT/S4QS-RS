@@ -20,10 +20,10 @@ var randomString = exports.randomString = function randomString(len) {
   return String.fromCharCode.apply(null, charCodes);
 };
 
-var FakePoller = exports.FakePoller = function FakePoller(prefix) {
+var FakePoller = exports.FakePoller = function FakePoller(prefix, messages) {
   this.handles = LRU(); // infinitely big
   this.prefix = prefix;
-  this.messageStream = $();
+  this.messageStream = $(messages || []);
 };
 
 FakePoller.prototype.deleteMsgs = function(messages) {
