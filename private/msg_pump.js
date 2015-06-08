@@ -93,7 +93,7 @@ function sendMsgs(msgs) {
 function deleteMsgs(handles) {
 
   if(_.contains(argv, "--nodel")) {
-    return $();
+    return $(Promise.resolve());
   }
 
   return $(new Promise(function (resolve, reject) {
