@@ -24,7 +24,6 @@
     "debug": "2.x",
     "express": "4.x",
     "highland": "2.x",
-    "highland-errors-to": "^2.0.1",
     "lodash": "3.x",
     "lru-cache": "2.5.x",
     "pg": "4.x",
