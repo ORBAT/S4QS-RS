@@ -410,7 +410,7 @@ describe("S3 to Redshift copier", function () {
       var rsStatus = parameters.rsStatus;
       var msgs = parameters.msgs;
       s3Event = s3Event || {};
-      var fakePoller = new tu.FakePoller("derr/some.stuff.here", msgs)
+      var fakePoller = new tu.FakePoller("derr/some.stuff.here/", msgs)
         , fakePg = new tu.FakePg(pgConnErr, pgQueryErr, pgDoneCb || sinon.spy())
         , fakeS3 = new tu.FakeS3(s3Event.put, s3Event.del)
         , fakeRs = new tu.FakeRedshift("blaster", rsStatus || "available")
@@ -460,7 +460,7 @@ describe("S3 to Redshift copier", function () {
     }
 
     function newSQSMsg(n) {
-      return new tu.SQSMessage(n, "bucket", "derr/some.stuff.here");
+      return new tu.SQSMessage(n, "bucket", "derr/some.stuff.here/");
     }
 
     describe("errorStream", function () {
@@ -470,17 +470,18 @@ describe("S3 to Redshift copier", function () {
           ;
 
         this.sinon.stub(mup.Manifest.prototype, "_upload", function() {
+          console.log("Stubbed Manifest._upload");
           this._reject(error);
           return this._promise;
         });
 
         c._unseenStream.fork().errors(function () {
+          console.log("Welp, found an error");
           done(new Error("_unseenStream shouldn't have any errors"));
         });
 
         c.errorStream.fork().each(function(err) {
           expect(err).to.deep.equal(error);
-          console.log("JKHDASHJKLDSHJKLA");
           done();
         });
 
