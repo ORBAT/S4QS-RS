@@ -91,6 +91,11 @@ function sendMsgs(msgs) {
 
 
 function deleteMsgs(handles) {
+
+  if(_.contains(argv, "--nodel")) {
+    return $();
+  }
+
   return $(new Promise(function (resolve, reject) {
     var entries = _.map(handles, function (hndl, n) {
       return {
