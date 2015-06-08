@@ -97,3 +97,13 @@ if(config.has("HTTPPort")) {
 }
 
 s3c.start();
+
+s3c.errorStream.fork()
+  .errors(function (err, push) {
+    push(null, err);
+  })
+  .each(function (err) {
+    error("Got an error we can't recover from: " + err);
+    process.exit(1);
+  });
+
