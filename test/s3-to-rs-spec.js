@@ -376,7 +376,7 @@ describe("S3 to Redshift copier", function () {
         tsm._postfix = "_postfix";
 
         this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_172800");
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
       });
 
       it("should return table name when ts table exists", function() {
@@ -395,7 +395,7 @@ describe("S3 to Redshift copier", function () {
         tsm._postfix = "_postfix";
 
         this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_172800");
+        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
       });
     });
   });
