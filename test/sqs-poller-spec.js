@@ -66,7 +66,6 @@ describe("SQS poller", function() {
     });
 
     it("should stream messages it gets from _rcv", function (done) {
-      clock = this.sinon.useFakeTimers(1000);
       var sm = newSQSMsg(10).Messages
         , p = newPoller()
         ;
