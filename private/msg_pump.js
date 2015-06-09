@@ -66,6 +66,11 @@ var msgStream = $(function (push, next) {
 
 
 function sendMsgs(msgs) {
+
+  if(_.contains(argv, "--justdel")) {
+    return $(Promise.resolve(_.pluck(msgs, "ReceiptHandle")));
+  }
+
   return $(new Promise(function (resolve, reject) {
     var msgsOut = _.map(msgs, function (msg, n) {
       return {
