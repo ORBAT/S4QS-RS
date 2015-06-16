@@ -22,8 +22,8 @@ var inspect = _.partialRight(util.inspect, {depth: 3});
 describe("SQS poller", function() {
 
   var bucket = "TOOK_MAH_BUKKIT";
-  var prefix = "dirgle/table.name/";
-  var namerFn = ut.tableStrToNamer("/s3:\/\/.*?\/dirgle\/(.*?)\//i");
+  var prefix = "some-prefix/table.name/";
+  var namerFn = ut.tableStrToNamer("/s3:\/\/.*?\/some-prefix\/(.*?)\//i");
   var filterFn = ut.nameFilterFnFor(["table_name"], namerFn);
 
 
@@ -32,7 +32,7 @@ describe("SQS poller", function() {
   }
 
   function newPoller(rcv, del) {
-    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.2, repeatPoll: 3});
+    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.02, repeatPoll: 3});
   }
 
   describe("messageStream", function () {
@@ -45,24 +45,45 @@ describe("SQS poller", function() {
       }
     });
 
-    it("should call _rcv multiple times", function (done) {
-      clock = this.sinon.useFakeTimers(1000);
-      var sm = newSQSMsg(10).Messages
+    it("should not contain messages that don't pass the filter function", function (done) {
+      var badMsgs = new tu.SQSMessage(20, bucket, "dirgle/bleuhrg/").Messages
+        , sm = newSQSMsg(10).Messages
         , p = newPoller()
         ;
 
-      this.sinon.stub(p, "_rcv").resolves(sm);
+      this.sinon.stub(p, "deleteMsgs").resolves();
+      var rcv = this.sinon.stub(p, "_rcv");
+
+      rcv.onFirstCall().resolves(badMsgs);
+      rcv.resolves(sm);
+
+
+      p.start();
 
       var count = 0;
+
       p.messageStream.each(function (msg) {
         expect(msg).to.deep.equal(sm[count % sm.length]);
 
         count++;
-        if(count >= 30) {
-          p.messageStream.end();
+        if(count >= 10) {
+          p.stop();
+//          p.messageStream.end();
           done();
         }
       });
+
+    });
+
+    it.skip("should delete messages that don't pass the filter function", function () {
+      var sm = new tu.SQSMessage(5, bucket, "dirgle/bleuhrg/")
+        , p = newPoller({event: "success", content: {data: sm}})
+        ;
+      this.sinon.stub(p, "deleteMsgs").resolves();
+
+      return p._rcv().then(function() {
+        expect(p.deleteMsgs).to.have.been.calledWithMatch(sm.Messages);
+      })
     });
 
     it("should stream messages it gets from _rcv", function (done) {
@@ -72,13 +93,16 @@ describe("SQS poller", function() {
 
       this.sinon.stub(p, "_rcv").resolves(sm);
 
+      p.start();
+
       var count = 0;
       p.messageStream.each(function (msg) {
         expect(msg).to.deep.equal(sm[count % sm.length]);
 
         count++;
         if(count >= 60) {
-          p.messageStream.end();
+          p.stop();
+//          p.messageStream.end();
           done();
         }
       });
@@ -89,8 +113,8 @@ describe("SQS poller", function() {
   });
 
   describe("deleteMsgs", function () {
-    it("Should return an empty promise when given an empty array", function () {
-      return expect(newPoller().deleteMsgs([])).to.eventually.equal(undefined);
+    it("Should return a promise of an empty array when given an empty array", function () {
+      return expect(newPoller().deleteMsgs([])).to.eventually.deep.equal([]);
     });
 
     it("Should return a rejected promise if deletion fails", function () {
@@ -118,24 +142,6 @@ describe("SQS poller", function() {
 
   describe("_rcv", function () {
 
-    it("should not return messages that don't pass the filter function", function () {
-      var sm = new tu.SQSMessage(5, bucket, "dirgle/bleuhrg/")
-        , p = newPoller({event: "success", content: {data: sm}})
-        ;
-      this.sinon.stub(p, "deleteMsgs").resolves();
-
-      return expect(p._rcv()).to.eventually.deep.equal([]);
-    });
-
-    it("should delete messages that don't pass the filter function", function () {
-      var sm = new tu.SQSMessage(5, bucket, "dirgle/bleuhrg/")
-        , p = newPoller({event: "success", content: {data: sm}})
-        ;
-      this.sinon.stub(p, "deleteMsgs").resolves();
-      return p._rcv().then(function() {
-        expect(p.deleteMsgs).to.have.been.calledWithMatch(sm.Messages);
-      })
-    });
 
     it("should return a promise of messages from SQS", function() {
       var sm = newSQSMsg(10);

@@ -11,6 +11,7 @@ var inspect = _.partialRight(util.inspect, {depth: 10});
 var sinon = require('sinon');
 var ut = require('../lib/utils');
 var $ = require('highland');
+var pause = require('promise-pauser');
 var sinonAsPromised = require('sinon-as-promised')(Promise);
 
 var randomString = exports.randomString = function randomString(len) {
@@ -23,7 +24,21 @@ var randomString = exports.randomString = function randomString(len) {
 var FakePoller = exports.FakePoller = function FakePoller(prefix, messages) {
   this.handles = LRU(); // infinitely big
   this.prefix = prefix;
-  this.messageStream = $(messages || []);
+
+  this._pauser = pause.pauser();
+  this._pauser.pause();
+
+  this.messageStream = $(messages || [])
+    .flatMap($.compose($, pause.waitFor(this._pauser)));
+
+};
+
+FakePoller.prototype.start = function() {
+  this._pauser.unpause();
+};
+
+FakePoller.prototype.stop = function() {
+  this._pauser.pause();
 };
 
 FakePoller.prototype.deleteMsgs = function(messages) {
