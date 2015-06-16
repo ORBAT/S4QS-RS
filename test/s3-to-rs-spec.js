@@ -475,18 +475,16 @@ describe("S3 to Redshift copier", function () {
           return this._promise;
         });
 
-        c._unseenStream.fork().errors(function () {
-          console.log("Welp, found an error");
-          done(new Error("_unseenStream shouldn't have any errors"));
-        });
-
-        c.errorStream.fork().each(function(err) {
-          expect(err).to.deep.equal(error);
-          done();
-        });
-
         c.start(true).done(function() {
-//          console.log(inspect(c._poller.messageStream));
+          c._unseenStream.fork().errors(function () {
+            console.log("Welp, found an error");
+            done(new Error("_unseenStream shouldn't have any errors"));
+          });
+
+          c.errorStream.fork().each(function(err) {
+            expect(err).to.deep.equal(error);
+            done();
+          });
         });
 
       });
