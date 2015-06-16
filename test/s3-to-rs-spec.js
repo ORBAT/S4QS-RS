@@ -463,6 +463,10 @@ describe("S3 to Redshift copier", function () {
       return new tu.SQSMessage(n, "bucket", "derr/some.stuff.here/");
     }
 
+    describe("seenStream", function () {
+
+    });
+
     describe("errorStream", function () {
       it("should contain errors from _unseenStream", function (done) {
         var c = newCopier({msgs: newSQSMsg(10).Messages})
@@ -642,7 +646,7 @@ describe("S3 to Redshift copier", function () {
     });
 
 
-    describe("_dedup", function () {
+    describe.skip("_dedup", function () {
       it("should delete duplicate messages", function () {
         var sm = newSQSMsg(10)
           , seen = sm.Messages.slice(0, 5)
@@ -704,7 +708,7 @@ describe("S3 to Redshift copier", function () {
           ;
         p._markSeen(sm.Messages);
         var firstElem = ut.splat(ut.get('0'));
-        expect(firstElem(spy.args)).to.deep.equal(_.pluck(sm.Messages, 'MessageId'));
+        expect(firstElem(spy.args)).to.deep.equal(ut.messagesToURIs(sm.Messages));
       });
     });
 
