@@ -35,6 +35,68 @@ describe("SQS poller", function() {
     return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.02, repeatPoll: 3});
   }
 
+
+  describe("_unknownMsgs", function () {
+
+    it("should output the S3 URIs in deleted messages", function (done) {
+      var badMsgs = new tu.SQSMessage(10, bucket, "dirgle/bleuhrg/").Messages
+        , sm = newSQSMsg(10).Messages
+        , p = newPoller()
+        ;
+
+      var deleteMsgs = this.sinon.stub(p, "deleteMsgs", function (msgs) {
+        return Promise.resolve(ut.messagesToURIs(msgs));
+      });
+
+      var rcv = this.sinon.stub(p, "_rcv");
+
+      rcv.onFirstCall().resolves(badMsgs);
+      rcv.resolves(sm);
+
+      p.start();
+
+      var count = 0;
+
+      p._unknownMsgs.each(function (msg) {
+        expect(msg).to.deep.equal(ut.messageToURIs(badMsgs[count % badMsgs.length])[0]);
+        count++;
+        if (count >= 10) {
+          p.stop();
+          done();
+        }
+      });
+    });
+
+    it("should delete messages that don't pass the filter", function (done) {
+      var badMsgs = new tu.SQSMessage(10, bucket, "dirgle/bleuhrg/").Messages
+        , sm = newSQSMsg(10).Messages
+        , p = newPoller()
+        ;
+
+      var deleteMsgs = this.sinon.stub(p, "deleteMsgs", function (msgs) {
+        return Promise.resolve(ut.messagesToURIs(msgs));
+      });
+
+      var rcv = this.sinon.stub(p, "_rcv");
+
+      rcv.onFirstCall().resolves(badMsgs);
+      rcv.resolves(sm);
+
+      p.start();
+
+      var count = 0;
+
+      p._unknownMsgs.each(function (msg) {
+        expect(_.flattenDeep(deleteMsgs.args)).to.deep.equal(badMsgs);
+        count++;
+        if (count >= 10) {
+          p.stop();
+          done();
+        }
+      });
+    });
+  });
+
   describe("messageStream", function () {
     var clock;
 
@@ -57,7 +119,6 @@ describe("SQS poller", function() {
       rcv.onFirstCall().resolves(badMsgs);
       rcv.resolves(sm);
 
-
       p.start();
 
       var count = 0;
@@ -68,22 +129,10 @@ describe("SQS poller", function() {
         count++;
         if(count >= 10) {
           p.stop();
-//          p.messageStream.end();
           done();
         }
       });
 
-    });
-
-    it.skip("should delete messages that don't pass the filter function", function () {
-      var sm = new tu.SQSMessage(5, bucket, "dirgle/bleuhrg/")
-        , p = newPoller({event: "success", content: {data: sm}})
-        ;
-      this.sinon.stub(p, "deleteMsgs").resolves();
-
-      return p._rcv().then(function() {
-        expect(p.deleteMsgs).to.have.been.calledWithMatch(sm.Messages);
-      })
     });
 
     it("should stream messages it gets from _rcv", function (done) {
@@ -102,7 +151,6 @@ describe("SQS poller", function() {
         count++;
         if(count >= 60) {
           p.stop();
-//          p.messageStream.end();
           done();
         }
       });
