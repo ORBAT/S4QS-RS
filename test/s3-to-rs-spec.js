@@ -929,10 +929,10 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
-      it("should not return a rejected promise on deletion error", function () {
+      it("should return a rejected promise on deletion error", function () {
         var c = newCopier({pgConnErr: null, pgQueryErr: null, pgDoneCb: null});
         this.sinon.stub(c._poller, "deleteMsgs").returns(Promise.reject(new Error("welp")));
-        return expect(c._delete(new tu.SQSMessage(10, "gler", "flor").Messages)).to.be.fulfilled;
+        return expect(c._delete(new tu.SQSMessage(10, "gler", "flor").Messages)).to.be.rejectedWith(Error, "welp");
       });
     });
 
