@@ -1,6 +1,6 @@
 {
   "name": "s4qs-rs",
-  "version": "1.0.4",
+  "version": "1.1.0-beta",
   "description": "Reads S3 object creation events from SQS and copies data to Redshift",
   "main": "index.js",
   "scripts": {
