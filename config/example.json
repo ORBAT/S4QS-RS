@@ -104,7 +104,8 @@
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group
        will be used as the table name.
 
-       When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization goes.
+       When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization for
+       Redshift goes.
        Feed it weird URIs and weird stuff will probably happen.
 
        The regex, tablePostfix and timeSeries settings in this example would turn URIs like
@@ -136,21 +137,22 @@
       }
     },
     /*
-     S4QS-RS copies data into time series tables with a configurable time period.
-     A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
-     series table is created. A configurable amount of old tables are retained, and old tables are dropped
-     when needed.
+     S4QS-RS can either copy data into a single, monolithic table, or it can use time series time series tables with a
+     configurable time period.
 
-     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match
-     time series table configuration to incoming S3 files.
+     Multiple automatically updating UNION ALL + SELECT views of the tables can be created. A configurable amount of
+     old tables can be retained, and old tables are dropped when needed.
+
+     The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
+     table configuration to incoming S3 files.
 
      See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
      on the concept.
 
      Required. Sub-object properties are required unless otherwise noted.
      */
-    "timeSeries": {
-      // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the
+    "tableConfig": {
+      // time series table configuration for the base table some_table_name (extracted from S3 URI by regex in the
       // "table" property above)
       "some_table_name": {
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
@@ -169,10 +171,8 @@
         // Array of table attributes
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
+      // NOTE that this table has no time series configuration, so other_table_name_devel will be used as table name
       "other_table_name": {
-        "period": 86400,
-        "maxTables": 30,
-        "tablesInView": [1, 5, 15, 30],
         "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
