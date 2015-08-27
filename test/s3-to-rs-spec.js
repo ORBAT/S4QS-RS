@@ -434,7 +434,6 @@ describe("S3 to Redshift copier", function () {
               period: 60 * 60 * 24
               , tablesInView: 10
               , maxTables: 30
-              , latestPostfix: "_latest"
               , columns: []
               , tableAttrs: []
             }
