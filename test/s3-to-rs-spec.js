@@ -113,7 +113,7 @@ describe("S3 to Redshift copier", function () {
     };
   });
 
-  describe("TimeSeriesManager", function () {
+  describe("TableManager", function () {
 
     var tsOpts
       , schema = "myschema"
@@ -142,7 +142,7 @@ describe("S3 to Redshift copier", function () {
         return Promise.using(ut.getPgClient(fp, "postgres://dasjkdsa"), fn);
       };
 
-      return new s3t.TimeSeriesManager(usingPg, schema, "", tsOpts);
+      return new s3t.TableManager(usingPg, schema, "", tsOpts);
     }
 
     describe("_selectFor", function () {
@@ -281,7 +281,7 @@ describe("S3 to Redshift copier", function () {
       });
     });
 
-    describe("tsTableFor", function () {
+    describe("tableFor", function () {
 
       it("should update view when a new TS table was not created", function () {
         var time = 172800000; //60 * 60 * 48 * 1000. The period is 24h, so this should give us a ts table with the same timestamp
@@ -296,7 +296,7 @@ describe("S3 to Redshift copier", function () {
           , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
-        return tsm.tsTableFor(table).then(function() {
+        return tsm.tableFor(table).then(function() {
           expect(updView).to.have.been.calledOnce;
           expect(updView).to.have.been.calledWithMatch(table, ["table1", "table2"])
         });
@@ -312,7 +312,7 @@ describe("S3 to Redshift copier", function () {
           , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
-        return tsm.tsTableFor(table).then(function() {
+        return tsm.tableFor(table).then(function() {
           expect(updView).to.have.been.calledOnce;
           expect(updView).to.have.been.calledWithMatch(table, ["table1", "table2"])
         });
@@ -328,7 +328,7 @@ describe("S3 to Redshift copier", function () {
           , updView = this.sinon.stub(tsm, "_updateViews").resolves(tables)
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(tables)
           ;
-        return expect(tsm.tsTableFor(table)).to.be.fulfilled;
+        return expect(tsm.tableFor(table)).to.be.fulfilled;
       });
 
       it("should not call _pruneTsTables when a new TS table was not created", function() {
@@ -343,7 +343,7 @@ describe("S3 to Redshift copier", function () {
           , updView = this.sinon.stub(tsm, "_updateViews").resolves([])
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
           ;
-        return tsm.tsTableFor(table).then(function() {
+        return tsm.tableFor(table).then(function() {
           expect(prune).to.not.have.been.called;
         });
       });
@@ -357,7 +357,7 @@ describe("S3 to Redshift copier", function () {
           , updView = this.sinon.stub(tsm, "_updateViews").resolves([])
           , listTs = this.sinon.stub(tsm, "_listTsTables").resolves(["table1", "table2"])
           ;
-        return tsm.tsTableFor(table).then(function() {
+        return tsm.tableFor(table).then(function() {
           expect(prune).to.have.been.calledOnce;
           expect(prune).to.have.been.calledWithMatch(table);
         });
@@ -376,7 +376,7 @@ describe("S3 to Redshift copier", function () {
         tsm._postfix = "_postfix";
 
         this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
+        return expect(tsm.tableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
       });
 
       it("should return table name when ts table exists", function() {
@@ -395,7 +395,7 @@ describe("S3 to Redshift copier", function () {
         tsm._postfix = "_postfix";
 
         this.sinon.stub(tsm, "_pruneTsTables").resolves([]);
-        return expect(tsm.tsTableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
+        return expect(tsm.tableFor(table)).to.eventually.equal(schema + "." + table + "_postfix_ts_1970_01_03");
       });
     });
   });
@@ -628,7 +628,7 @@ describe("S3 to Redshift copier", function () {
 
         this.sinon.stub(c, "_connAndCopy").returns(def.promise);
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
 
         c.start();
@@ -723,7 +723,7 @@ describe("S3 to Redshift copier", function () {
 
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(mf2, "delete").returns(Promise.resolve(mf2.manifestURI));
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
 
@@ -747,7 +747,7 @@ describe("S3 to Redshift copier", function () {
           , def2 = defer()
           ;
 
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
         _connAndCopy.onCall(0).returns(def.promise);
         _connAndCopy.onCall(1).returns(def2.promise);
         _connAndCopy.returns(Promise.resolve());
@@ -774,7 +774,7 @@ describe("S3 to Redshift copier", function () {
           , mfDelete = this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI))
           ;
 
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
         this.sinon.stub(c, "_connAndCopy").returns(Promise.reject(new Error("not gonna happen, bub")));
 
         c._onManifest(mf);
@@ -793,7 +793,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.reject(new Error("nope")));
         this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -801,7 +801,7 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
-      it("should delete the manifest when tsTableFor fails", function () {
+      it("should delete the manifest when tableFor fails", function () {
         var c = newCopier({pgConnErr: null, pgQueryErr: null, pgDoneCb: null})
           , mf = newManifest(true, 10, null, null, "table1")
           ;
@@ -809,7 +809,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").resolves(mf.manifestURI);
         this.sinon.stub(c, "_delete").resolves();
         this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
-        this.sinon.stub(c._tsMgr, "tsTableFor").rejects(new Error("DERR"));
+        this.sinon.stub(c._tblMgr, "tableFor").rejects(new Error("DERR"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -817,7 +817,7 @@ describe("S3 to Redshift copier", function () {
         });
       });
 
-      it("should catch tsTableFor errors", function () {
+      it("should catch tableFor errors", function () {
         var c = newCopier({pgConnErr: null, pgQueryErr: null, pgDoneCb: null})
           , mf = newManifest(true, 10, null, null, "table1")
           ;
@@ -825,7 +825,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").resolves(mf.manifestURI);
         this.sinon.stub(c, "_delete").resolves();
         this.sinon.stub(mf, "delete").resolves(mf.manifestURI);
-        this.sinon.stub(c._tsMgr, "tsTableFor").rejects(new Error("DERR"));
+        this.sinon.stub(c._tblMgr, "tableFor").rejects(new Error("DERR"));
 
         c._onManifest(mf);
         return expect(Promise.props(c._manifestsPending)).to.be.fulfilled.then(function () {
@@ -841,7 +841,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
         this.sinon.stub(mf, "delete").returns(Promise.reject(new Error("I DON'T THINK SO")));
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
@@ -857,7 +857,7 @@ describe("S3 to Redshift copier", function () {
         this.sinon.stub(c, "_connAndCopy").returns(Promise.resolve(mf.manifestURI));
         this.sinon.stub(c, "_delete").returns(Promise.resolve());
         this.sinon.stub(mf, "delete").returns(Promise.resolve(mf.manifestURI));
-        this.sinon.stub(c._tsMgr, "tsTableFor").returns(Promise.resolve("table1"));
+        this.sinon.stub(c._tblMgr, "tableFor").returns(Promise.resolve("table1"));
 
         c._onManifest(mf);
         return Promise.props(c._manifestsPending).then(function () {
