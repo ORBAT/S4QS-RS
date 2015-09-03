@@ -156,7 +156,7 @@
       // "table" property above)
       "some_table_name": {
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
-        // created per every day
+        // created per every day. Omit this, maxTables and tablesInView to copy to a single table.
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
         "maxTables": 30,
