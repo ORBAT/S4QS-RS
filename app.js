@@ -64,7 +64,7 @@ var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 
 var tbl = copierOpts.copyParams.table;
 var namerFn = _.isString(tbl) ? ut.tableStrToNamer(tbl) : tbl;
-var knownNames = _.keys(config.get("S3Copier.timeSeries"));
+var knownNames = _.keys(config.get("S3Copier.tableConfig"));
 
 pollerOpts.filter = ut.nameFilterFnFor(knownNames, namerFn);
 
