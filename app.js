@@ -98,6 +98,12 @@ if(config.has("HTTPPort")) {
 
 s3c.start();
 
+process.on("unhandledRejection", function(reason, promise) {
+  error("Exiting due to possibly unhandled rejection with reason " + reason);
+  error(reason.stack);
+  process.exit(1);
+});
+
 s3c.errorStream.fork()
   .errors(function (err, push) {
     push(null, err);
