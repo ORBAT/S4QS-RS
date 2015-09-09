@@ -112,7 +112,7 @@ s3c.errorStream.fork()
     push(null, err);
   })
   .each(function (err) {
-    error("Got an error we can't recover from: " + err);
+    error("Got an error we can't recover from: " + err + "\n" + err.stack);
     process.exit(1);
   });
 
