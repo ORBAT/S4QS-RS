@@ -61,10 +61,9 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   // Optional.
   "SQS": {
     "poller": {
-      // repeat the poll this many times when fetching new messages from SQS.
-      // You'll get at most repeatPoll * MaxNumberOfMessages messages at once.
+      // Do this many parallel SQS polls when polling for new messages.
       // Optional, defaults to 1.
-      "repeatPoll": 5
+      "parallelPolls": 5
     },
     // SQS region.
     // Required.
