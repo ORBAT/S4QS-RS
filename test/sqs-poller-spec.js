@@ -32,7 +32,7 @@ describe("SQS poller", function() {
   }
 
   function newPoller(rcv, del) {
-    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.02, repeatPoll: 3});
+    return new sp.Poller(new tu.FakeSQS(rcv, del), {filter: filterFn, pollIntervalSeconds: 0.02, parallelPolls: 3});
   }
 
 
