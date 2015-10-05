@@ -65,14 +65,17 @@ var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 var tbl = copierOpts.copyParams.table;
 var namerFn = _.isString(tbl) ? ut.tableStrToNamer(tbl) : tbl;
 var knownNames = _.keys(config.get("S3Copier.tableConfig"));
+var statsdOpts = config.has("statsd") ? config.get("statsd") : {prefix: "s4qs."};
 
 pollerOpts.filter = ut.nameFilterFnFor(knownNames, namerFn);
+pollerOpts.statsd = statsdOpts;
 
 var poller = new p.Poller(sqs, pollerOpts);
 
 var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
+copierOpts.statsd = statsdOpts;
 
 var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, copierOpts.copyParams, copierOpts);
 
@@ -109,7 +112,7 @@ s3c.errorStream.fork()
     push(null, err);
   })
   .each(function (err) {
-    error("Got an error we can't recover from: " + err);
+    error("Got an error we can't recover from: " + err + "\n" + err.stack);
     process.exit(1);
   });
 

@@ -6,10 +6,12 @@
   // Optional.
   "SQS": {
     "poller": {
-      // repeat the poll this many times when fetching new messages from SQS.
-      // You'll get at most repeatPoll * MaxNumberOfMessages messages at once.
+      // Do this many parallel SQS polls when polling for new messages.
       // Optional, defaults to 1.
-      "repeatPoll": 5
+      "parallelPolls": 5,
+      // Each parallel poll will be done at intervals of pollIntervalSeconds seconds. The interval starts from the
+      // finish of the previous poll.
+      "pollIntervalSeconds": 60
     },
     // SQS region.
     // Required.
@@ -71,7 +73,9 @@
       // Bucket to upload manifests to.
       // Required.
       "bucket": "manifest-bucket",
-      // Prefix for manifest keys.
+      // Prefix for manifest keys. "In-flight" manifests are stored in bucket/prefix/inflight/YYYY-MM-DD/manifestFileName.json.
+      // If the Redshift COPY is successful, manifests are moved to bucket/prefix/successful/, and if the COPY fails they are
+      // moved to bucket/prefix/failed/
       // Required.
       "prefix": "s4qs/manifests/",
       // How many times uploads should be retried. Retries have a backoff of 1.5^nRetries * 1000ms, so the first
@@ -137,14 +141,13 @@
       }
     },
     /*
-     S4QS-RS can either copy data into a single, monolithic table, or it can use time series time series tables with a
-     configurable time period.
+     S4QS-RS copies data into time series tables with a configurable time period.
+     A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
+     series table is created. A configurable amount of old tables are retained, and old tables are dropped
+     when needed.
 
-     Multiple automatically updating UNION ALL + SELECT views of the tables can be created. A configurable amount of
-     old tables can be retained, and old tables are dropped when needed.
-
-     The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
-     table configuration to incoming S3 files.
+     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match
+     time series table configuration to incoming S3 files.
 
      See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
      on the concept.
@@ -171,8 +174,7 @@
         // Array of table attributes
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
-      // NOTE that this table has no time series configuration, so other_table_name_devel will be used as table name
-      "other_table_name": {
+      "other_table_name": { // no
         "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
