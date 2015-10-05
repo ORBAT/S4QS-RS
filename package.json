@@ -40,6 +40,9 @@
     "chai-as-promised": "4.x",
     "sinon-as-promised": "2.x"
   },
+  "engines": {
+    "node": ">=4.0.0"
+  },
   "config": {
     "blanket": {
       "pattern": "lib",
