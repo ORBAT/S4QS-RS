@@ -61,10 +61,12 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   // Optional.
   "SQS": {
     "poller": {
-      // repeat the poll this many times when fetching new messages from SQS.
-      // You'll get at most repeatPoll * MaxNumberOfMessages messages at once.
+      // Do this many parallel SQS polls when polling for new messages.
       // Optional, defaults to 1.
-      "repeatPoll": 5
+      "parallelPolls": 5,
+      // Each parallel poll will be done at intervals of pollIntervalSeconds seconds. The interval starts from the
+      // finish of the previous poll.
+      "pollIntervalSeconds": 60
     },
     // SQS region.
     // Required.
@@ -126,7 +128,9 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // Bucket to upload manifests to.
       // Required.
       "bucket": "manifest-bucket",
-      // Prefix for manifest keys.
+      // Prefix for manifest keys. "In-flight" manifests are stored in bucket/prefix/inflight/YYYY-MM-DD/manifestFileName.json.
+      // If the Redshift COPY is successful, manifests are moved to bucket/prefix/successful/, and if the COPY fails they are
+      // moved to bucket/prefix/failed/
       // Required.
       "prefix": "s4qs/manifests/",
       // How many times uploads should be retried. Retries have a backoff of 1.5^nRetries * 1000ms, so the first
@@ -159,7 +163,8 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group
        will be used as the table name.
 
-       When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization goes.
+       When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization for
+       Redshift goes.
        Feed it weird URIs and weird stuff will probably happen.
 
        The regex, tablePostfix and timeSeries settings in this example would turn URIs like
@@ -204,12 +209,12 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
      Required. Sub-object properties are required unless otherwise noted.
      */
-    "timeSeries": {
-      // time series table configuration for the table some_table_name (extracted from S3 URI by regex in the
+    "tableConfig": {
+      // time series table configuration for the base table some_table_name (extracted from S3 URI by regex in the
       // "table" property above)
       "some_table_name": {
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
-        // created per every day
+        // created per every day. Omit this, maxTables and tablesInView to copy to a single table.
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
         "maxTables": 30,
@@ -224,10 +229,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // Array of table attributes
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
-      "other_table_name": {
-        "period": 86400,
-        "maxTables": 30,
-        "tablesInView": [1, 5, 15, 30],
+      "other_table_name": { // no
         "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
