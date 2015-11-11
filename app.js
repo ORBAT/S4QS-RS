@@ -74,10 +74,12 @@ var poller = new p.Poller(sqs, pollerOpts);
 
 var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
+if(!_.get(copierOpts, "copyParams.withParams")) _.set(copierOpts, "copyParams.withParams", {});
+
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 copierOpts.statsd = statsdOpts;
 
-var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, copierOpts.copyParams, copierOpts);
+var s3c = new S3Copier(poller, Promise.promisifyAll(pg), s3, rs, copierOpts);
 
 
 function cleanup(sig) {
