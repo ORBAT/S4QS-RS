@@ -112,7 +112,7 @@
        Redshift goes.
        Feed it weird URIs and weird stuff will probably happen.
 
-       The regex, tablePostfix and timeSeries settings in this example would turn URIs like
+       The regex, tablePostfix and tableConfig settings in this example would turn URIs like
        s3://bucketname/whatevs/some.table.name/somefilename.csv.gz
        to time series tables that have names like "some_table_name_devel_ts_1428883200",
        and the rolling view would have the name "some_table_name_view_devel".
@@ -128,15 +128,13 @@
         "GZIP",
         "TRUNCATECOLUMNS"
       ],
-      // parameters with arguments to COPY.
+      // parameters with arguments.
       // Boolean arguments can be either true/false, "true"/"false" or "on"/"off".
       // Can be overridden easily in NODE_ENV-specific configuration.
       // Technically optional, although you'll probably want some.
       "withParams": {
-        "DELIMITER": "\\t",
         "REGION": "us-east-1",
         "MAXERROR": 100,
-        "NULL": "null",
         "TIMEFORMAT": "auto"
       }
     },
@@ -146,22 +144,45 @@
      series table is created. A configurable amount of old tables are retained, and old tables are dropped
      when needed.
 
-     The keys of timeSeries should match table names produced by copyParams.table. The keys are used to match
+     The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
      time series table configuration to incoming S3 files.
 
      See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
      on the concept.
 
-     Required. Sub-object properties are required unless otherwise noted.
+     Required.
      */
     "tableConfig": {
       // time series table configuration for the base table some_table_name (extracted from S3 URI by regex in the
       // "table" property above)
       "some_table_name": {
+        // table-specific copyParams. Note that you CAN NOT override the "table" parameter.
+        // Optional
+        "copyParams": {
+          "withParams": {
+            "JSON": "s3://bukkit/jsonpaths_for_some_table_name.json"
+          }
+        },
+        // deduplication configuration. If these settings are present, S4QS-RS will deduplicate data
+        // using a staging table before copying it to the main table. Deduplication is done based on the PRIMARY KEY
+        // column, which must be defined in the "columns" array (see below) and NOT in the tableAttrs.
+        // The metadata tables have the prefixes _errors (for either duplicate rows or rows that were too old),
+        // _dedup (for primary keys to dedup against. See below), and _tracking (for keeping track of the newest timestamp. See below.)
+        // Optional.
+        "deduplication": {
+          // only accept rows that have a timestamp that is at most this much older than the newest previous row. Required
+          "dropOlderThan": "45 minutes",
+          // how much data to keep in the deduplication metadata table. Required
+          "dedupSetAge": "2 hours",
+          // which column to use for the dropOlderThan check
+          "timestampCol": "ts"
+        },
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
         // created per every day. Omit this, maxTables and tablesInView to copy to a single table.
+        // Optional.
         "period": 86400,
-        // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first
+        // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first.
+        // Optional (see above)
         "maxTables": 30,
         // How many rolling views to create, and how many tables each view
         // should contain.
@@ -169,13 +190,15 @@
         // Can be either an array or a single number.
         // Optional. Will default to maxTables if omitted.
         "tablesInView": [1, 5, 15, 30],
-        // Array of column definitions
-        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) ENCODE LZO DISTKEY", "..."],
-        // Array of table attributes
+        // Array of column definitions.
+        // Required.
+        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) PRIMARY KEY ENCODE LZO", "..."],
+        // Array of table attributes.
+        // Required.
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
-      "other_table_name": { // no
-        "columns": ["AHOY INT NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA DISTKEY", "..."],
+      "other_table_name": { // no dedup or time series configuration for this base table
+        "columns": ["AHOY INT PRIMARY KEY NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
     }
