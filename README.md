@@ -54,10 +54,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
 ```javascript
 {
-  // S4QS-RS will start a HTTP server at this port, with the route /check
-  // which returns the string OK. Omit to disable.
-  "HTTPPort": 9999,
-  // SQS poller options. 
+  // send statistics to statsd with given prefix.
+  // Optional.
+  "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
+  // SQS poller options.
   // Optional.
   "SQS": {
     "poller": {
@@ -144,9 +144,6 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     "LRU": {
       "max": 1000
     },
-    // how often to poll for new messages from SQS.
-    // Required.
-    "pollIntervalSeconds": 300,
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
@@ -208,8 +205,8 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
      Required.
      */
     "tableConfig": {
-      // time series table configuration for the base table some_table_name (extracted from S3 URI by regex in the
-      // "table" property above)
+      // monolithic (i.e. no time series tables used) table configuration for the base table some_table_name.
+      // The base table name is extracted from S3 URI by regex in the "table" property above)
       "some_table_name": {
         // table-specific copyParams. Note that you CAN NOT override the "table" parameter.
         // Optional
@@ -218,6 +215,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
             "JSON": "s3://bukkit/jsonpaths_for_some_table_name.json"
           }
         },
+        // which column to use as time stamp when e.g. dropping rows that arrived too late, or when deleting old rows
+        "timestampCol": "ts",
+        // delete rows older than this. Only useful when using monolithic tables (i.e. not time series tables like below)
+        "deleteOlderThan": "90 day",
         // deduplication configuration. If these settings are present, S4QS-RS will deduplicate data
         // using a staging table before copying it to the main table. Deduplication is done based on the PRIMARY KEY
         // column, which must be defined in the "columns" array (see below) and NOT in the tableAttrs.
@@ -228,12 +229,19 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
           // only accept rows that have a timestamp that is at most this much older than the newest previous row. Required
           "dropOlderThan": "45 minutes",
           // how much data to keep in the deduplication metadata table. Required
-          "dedupSetAge": "2 hours",
-          // which column to use for the dropOlderThan check
-          "timestampCol": "ts"
+          "dedupSetAge": "2 hours"
         },
+        // Array of column definitions.
+        // Required.
+        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) PRIMARY KEY ENCODE LZO", "..."],
+        // Array of table attributes.
+        // Required.
+        "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
+      },
+      // base table with time series table configuration
+      "other_table_name": {
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
-        // created per every day. Omit this, maxTables and tablesInView to copy to a single table.
+        // created per every day. Omit this, maxTables and tablesInView to copy to a single, monolithic table.
         // Optional.
         "period": 86400,
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first.
@@ -245,14 +253,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // Can be either an array or a single number.
         // Optional. Will default to maxTables if omitted.
         "tablesInView": [1, 5, 15, 30],
-        // Array of column definitions.
-        // Required.
-        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) PRIMARY KEY ENCODE LZO", "..."],
-        // Array of table attributes.
-        // Required.
-        "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
-      },
-      "other_table_name": { // no dedup or time series configuration for this base table
+        "deduplication": {
+          "dropOlderThan": "30 minutes",
+          "dedupSetAge": "1 hours"
+        },
         "columns": ["AHOY INT PRIMARY KEY NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
