@@ -54,7 +54,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
 ```javascript
 {
-  // send statistics to statsd with given prefix.
+  // send statistics to statsd using given prefix.
   // Optional.
   "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
   // SQS poller options.
@@ -152,7 +152,11 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // parameters for Redshift's COPY query.
     // Required.
     "copyParams": {
-      // Redshift schema to use
+      // maximum number of parallel copies to allow. Should be less than or equal to the number of configured tables.
+      // Optional, defaults to the number of configured tables.
+      "maxParallel": 2,
+      // Redshift schema to use.
+      // Required
       "schema": "myschema",
       /*
        the "table" property is used to build the "base" of the Redshift table name. table can be either a string

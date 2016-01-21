@@ -97,7 +97,11 @@
     // parameters for Redshift's COPY query.
     // Required.
     "copyParams": {
-      // Redshift schema to use
+      // maximum number of parallel copies to allow. Should be less than or equal to the number of configured tables.
+      // Optional, defaults to the number of configured tables.
+      "maxParallel": 2,
+      // Redshift schema to use.
+      // Required
       "schema": "myschema",
       /*
        the "table" property is used to build the "base" of the Redshift table name. table can be either a string
