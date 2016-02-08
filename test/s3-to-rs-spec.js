@@ -429,7 +429,7 @@ describe("S3 to Redshift copier", function () {
             , "bucket": "manifest-bukkit"
             , "prefix": "manifest-prefix/"
           }
-          , timeSeries: {
+          , tableConfig: {
             table: {
               period: 60 * 60 * 24
               , tablesInView: 10
