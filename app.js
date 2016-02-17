@@ -79,9 +79,11 @@ if(!_.get(copierOpts, "copyParams.withParams")) _.set(copierOpts, "copyParams.wi
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 copierOpts.statsd = statsdOpts;
 
-//////// TODO NOTE TESTING HAX HAX
-var tu = require('./test/test-utils');
-var s3c = new S3Copier(Promise.promisifyAll(new tu.FakePg(null, null, () => {})), s3, rs, copierOpts);
+ //////// TODO NOTE TESTING HAX HAX
+ var tu = require('./test/test-utils');
+ var s3c = new S3Copier(Promise.promisifyAll(new tu.FakePg(null, null, () => {})), s3, rs, copierOpts);
+
+//var s3c = new S3Copier(Promise.promisifyAll(pg), s3, rs, copierOpts);
 
 
 function cleanup(sig) {
