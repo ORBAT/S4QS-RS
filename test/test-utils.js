@@ -126,7 +126,7 @@ FakePg.prototype.connect = function connect(connStr, cb) {
   if(self.queryErr) {
     client.queryAsync.rejects(self.queryErr);
   } else {
-    client.queryAsync.resolves();
+    client.queryAsync.returns(Promise.resolve({rows: [{t: new Date()}]}).delay(500));
   }
 
   setImmediate(
