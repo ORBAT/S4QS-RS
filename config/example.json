@@ -1,8 +1,9 @@
 {
-  // send statistics to statsd with given prefix.
+  // send statistics to statsd using given prefix.
   // Optional.
   "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
-  // SQS poller options. 
+  // SQS poller options.
+  // Can be overridden in tableConfig (see below)
   // Optional.
   "SQS": {
     "poller": {
@@ -11,7 +12,7 @@
       "parallelPolls": 5,
       // Each parallel poll will be done at intervals of pollIntervalSeconds seconds. The interval starts from the
       // finish of the previous poll.
-      "pollIntervalSeconds": 60
+      "pollIntervalSeconds": 2
     },
     // SQS region.
     // Required.
@@ -95,6 +96,7 @@
     "tablePostfix": "_devel",
 
     // parameters for Redshift's COPY query.
+    // Can be overridden in tableConfig (see below)
     // Required.
     "copyParams": {
       // maximum number of parallel copies to allow. Should be less than or equal to the number of configured tables.
@@ -175,9 +177,13 @@
         // _dedup (for primary keys to dedup against. See below), and _tracking (for keeping track of the newest timestamp. See below.)
         // Optional.
         "deduplication": {
-          // only accept rows that have a timestamp that is at most this much older than the newest previous row. Required
+          // only accept rows that have a timestamp that is at most this much older than the newest previous row.
+          // Old rows will be moved to the table some_table_name_errors.
+          //Required
           "dropOlderThan": "45 minutes",
-          // how much data to keep in the deduplication metadata table. Required
+          // how long IDs should be kept in the deduplication table.
+          // Duplicate rows will be moved to the table some_table_name_errors.
+          // Required
           "dedupSetAge": "2 hours"
         },
         // Array of column definitions.
@@ -189,6 +195,12 @@
       },
       // base table with time series table configuration
       "other_table_name": {
+        // overridden SQS configuration
+        "SQS": {
+          "params": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
+          }
+        },
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
         // created per every day. Omit this, maxTables and tablesInView to copy to a single, monolithic table.
         // Optional.
