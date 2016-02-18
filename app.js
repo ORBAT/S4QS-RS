@@ -56,21 +56,10 @@ if(!credentials) {
 
 var copierOpts = config.get("S3Copier");
 
-//var sqs = new aws.SQS({region: config.get('SQS.region'), params: config.get('SQS.params')});
-
 var s3 = new aws.S3(config.get("S3Copier.S3"));
 
-//var pollerOpts = config.has('SQS.poller') ? config.get('SQS.poller') : {};
 
-var tbl = copierOpts.copyParams.table;
-var namerFn = _.isString(tbl) ? ut.tableStrToNamer(tbl) : tbl;
-var knownNames = _.keys(config.get("S3Copier.tableConfig"));
 var statsdOpts = config.has("statsd") ? config.get("statsd") : {prefix: "s4qs."};
-
-/*pollerOpts.filter = ut.nameFilterFnFor(knownNames, namerFn);
-pollerOpts.statsd = statsdOpts;*/
-
-//var poller = new p.Poller(sqs, pollerOpts);
 
 var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
@@ -79,11 +68,11 @@ if(!_.get(copierOpts, "copyParams.withParams")) _.set(copierOpts, "copyParams.wi
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 copierOpts.statsd = statsdOpts;
 
- //////// TODO NOTE TESTING HAX HAX
+/* //////// TODO NOTE TESTING HAX HAX
  var tu = require('./test/test-utils');
- var s3c = new S3Copier(Promise.promisifyAll(new tu.FakePg(null, null, () => {})), s3, rs, copierOpts);
+ var s3c = new S3Copier(Promise.promisifyAll(new tu.FakePg(null, null, () => {})), s3, rs, copierOpts);*/
 
-//var s3c = new S3Copier(Promise.promisifyAll(pg), s3, rs, copierOpts);
+var s3c = new S3Copier(Promise.promisifyAll(pg), s3, rs, copierOpts);
 
 
 function cleanup(sig) {
