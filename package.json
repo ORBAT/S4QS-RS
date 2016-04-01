@@ -20,6 +20,7 @@
   "dependencies": {
     "aws-sdk": "2.x",
     "bluebird": "2.x",
+    "co": "^4.6.0",
     "config": "1.x",
     "debug": "2.x",
     "express": "4.x",
