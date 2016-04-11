@@ -12,7 +12,7 @@ More details about how S4QS-RS works in the [configuration section](#configurati
 `npm install -g s4qs-rs`
 
 ## Configuration
-S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: For example `NODE_ENV=production` would cause `./config/production.json` to be loaded.
+S4QS-RS is configurable with JSON files located in either the `./config` subdirectory of the current working directory, or at `$NODE_CONFIG_DIR`. `./config/default.json` is always loaded and used for default settings, and `$NODE_ENV` is used to determine environment-specific configuration files: For example `NODE_ENV=production` would cause `./config/production.json` to be loaded and merged with `./config/default.json`.
 
 `NODE_ENV`-specific configuration files will always override the default configuration. If `./config/default.json` is, for example
 
@@ -67,7 +67,17 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       "parallelPolls": 5,
       // Each parallel poll will be done at intervals of pollIntervalSeconds seconds. The interval starts from the
       // finish of the previous poll.
-      "pollIntervalSeconds": 2
+      "pollIntervalSeconds": 2,
+      // update SQS message visibility timeout while a message is being processed.
+      // Configuration is optional, but updating is always done with default values (see below)
+      "visibilityTimeoutUpdater": {
+        // visibility timeout in seconds. Defaults to 300 seconds.
+        // Optional.
+        "visibilityTimeoutSeconds": 300,
+        // how often the visibility timeout should be updated. Defaults to 100 seconds.
+        // Optional.
+        "visibilityUpdateIntervalSeconds": 100
+      },
     },
     // SQS region.
     // Required.
@@ -82,6 +92,21 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   },
 
   "S3Copier": {
+    // options for etcd-based pipeline health checker.
+    // If the specified etcd key doesn't contain the value in matchAgainst, data finalization time will not be
+    // be updated (see the deduplication settings in tableConfig for more information.)
+    // Optional.
+    "healthCheck": {
+      // array of etcd servers to use.
+      // Required.
+      "etcdServers": ["etcd:4001"],
+      // etcd key to use.
+      // Required.
+      "key": "/s4qs/all_ok",
+      // String to match the etcd key against (CASE SENSITIVE.) If the key contains anything but this OR is not present,
+      //
+      "matchAgainst": "OK"
+    },
     // AWS Redshift options.
     // Required.
     "Redshift": {
@@ -229,12 +254,15 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // using a staging table before copying it to the main table. Deduplication is done based on the PRIMARY KEY
         // column, which must be defined in the "columns" array (see below) and NOT in the tableAttrs.
         // The metadata tables have the prefixes _errors (for either duplicate rows or rows that were too old),
-        // _dedup (for primary keys to dedup against. See below), and _tracking (for keeping track of the newest timestamp. See below.)
+        // _dedup (for primary keys to dedup against. See below), and _tracking (for keeping track of the newest
+        // timestamp and latest finalization time. See below.)
         // Optional.
         "deduplication": {
           // only accept rows that have a timestamp that is at most this much older than the newest previous row.
           // Old rows will be moved to the table some_table_name_errors.
-          //Required
+          // In practice, this is the finalization time of the data: after dropOlderThan, the data in the table
+          // won't change.
+          // Required
           "dropOlderThan": "45 minutes",
           // how long IDs should be kept in the deduplication table.
           // Duplicate rows will be moved to the table some_table_name_errors.
@@ -252,10 +280,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       "other_table_name": {
         // overridden SQS configuration
         "SQS": {
-           "params": {
-             "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
-           }
-         },
+          "params": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
+          }
+        },
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
         // created per every day. Omit this, maxTables and tablesInView to copy to a single, monolithic table.
         // Optional.
