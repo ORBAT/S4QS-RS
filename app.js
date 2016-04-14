@@ -60,6 +60,7 @@ var s3 = new aws.S3(config.get("S3Copier.S3"));
 
 
 var statsdOpts = config.has("statsd") ? config.get("statsd") : {prefix: "s4qs."};
+var zabbixOpts = config.has("zabbix") ? config.get("zabbix") : null;
 
 var rs = new aws.Redshift(config.get("S3Copier.Redshift"));
 
@@ -67,6 +68,7 @@ if(!_.get(copierOpts, "copyParams.withParams")) _.set(copierOpts, "copyParams.wi
 
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 copierOpts.statsd = statsdOpts;
+copierOpts.zabbix = zabbixOpts;
 
 /* //////// TODO NOTE TESTING HAX HAX
  var tu = require('./test/test-utils');
