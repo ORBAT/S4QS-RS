@@ -1,9 +1,9 @@
 # S4QS-RS
-S4QS-RS reads S3 object creation events from SQS and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html) documentation for more information.)
+S4QS-RS reads S3 object creation events from SQS queues and copies data from S3 to Redshift using COPY with S3 manifests (see Redshift's [COPY](http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html) documentation for more information.)
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
-Data is copied into time series tables with configurable rotation periods and retention, and multiple rolling views with different periods can be created. View creation is done so that adding or removing columns from time series tables doesn't break the view; missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
+Data can be either copied into monolithic tables, or time series tables with configurable rotation periods and retention, and multiple rolling views with different periods. View creation is done so that adding or removing columns from time series tables doesn't break the view: missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
 
 More details about how S4QS-RS works in the [configuration section](#configuration).
 
@@ -54,9 +54,6 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
 ```javascript
 {
-  // send statistics to statsd using given prefix.
-  // Optional.
-  "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
   // SQS poller options.
   // Can be overridden in tableConfig (see below)
   // Optional.
@@ -65,27 +62,31 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // Do this many parallel SQS polls when polling for new messages.
       // Optional, defaults to 1.
       "parallelPolls": 5,
+
       // Each parallel poll will be done at intervals of pollIntervalSeconds seconds. The interval starts from the
       // finish of the previous poll.
       "pollIntervalSeconds": 2,
+
       // update SQS message visibility timeout while a message is being processed.
       // Configuration is optional, but updating is always done with default values (see below)
       "visibilityTimeoutUpdater": {
         // visibility timeout in seconds. Defaults to 300 seconds.
         // Optional.
         "visibilityTimeoutSeconds": 300,
+
         // how often the visibility timeout should be updated. Defaults to 100 seconds.
         // Optional.
         "visibilityUpdateIntervalSeconds": 100
       },
     },
+
     // SQS region.
     // Required.
     "region": "us-east-1",
+
     // parameters to pass to SQS. See http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html.
-    // Required, and at least QueueUrl must be present.
+    // Optional.
     "params": {
-      "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/some-queue-name",
       "WaitTimeSeconds": 20,
       "MaxNumberOfMessages": 10
     }
@@ -100,15 +101,19 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // array of etcd servers to use.
       // Required.
       "etcdServers": ["etcd:4001"],
+
       // etcd key to use.
       // Required.
       "key": "/s4qs/all_ok",
+
       // String to match the etcd key against (CASE SENSITIVE.) If the key contains anything but this OR is not present,
-      //
+      // S4QS will stop updating the finalization time for all tables.
+      // Required.
       "matchAgainst": "OK"
     },
     // AWS Redshift options.
     // Required.
+
     "Redshift": {
       /*if the Redshift cluster's status goes to anything but "available",
        pause all operation, and try checking its status at intervals of
@@ -119,12 +124,15 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
        Optional. Defaults to -1. */
       "clusterAvailCheckInterval": 300,
+
       // Redshift connection string.
       // Required.
       "connStr": "postgres://username:password@example.com:5439/schema",
+
       // cluster region.
       // Required.
       "region": "us-east-1",
+
       // bound parameters. ClusterIdentifier is required, others are optional
       "params": {
         // cluster ID.
@@ -132,6 +140,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "ClusterIdentifier": "mycluster"
       }
     },
+
     // AWS S3 constructor options, used by the manifest uploader.
     // Required. ACL must be defined here, other parameters are optional.
     "S3": {
@@ -139,37 +148,39 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "ACL": "bucket-owner-full-control"
       }
     },
+
     // Manifest uploader options.
     // Required.
     "manifestUploader": {
       // Maximum number of URIs to have in each manifest (see maxWaitSeconds)
       // Required.
       "maxToUpload": 25,
+
       // Upload manifests at intervals of maxWaitSeconds seconds, as long as they have over 0 messages.
       // Required.
       "maxWaitSeconds": 600,
+
       // Value of "mandatory" property of manifest items.
       // Required.
       "mandatory": true,
+
       // Bucket to upload manifests to.
       // Required.
       "bucket": "manifest-bucket",
+
       // Prefix for manifest keys. "In-flight" manifests are stored in bucket/prefix/inflight/YYYY-MM-DD/manifestFileName.json.
       // If the Redshift COPY is successful, manifests are moved to bucket/prefix/successful/, and if the COPY fails they are
       // moved to bucket/prefix/failed/
       // Required.
       "prefix": "s4qs/manifests/",
+
       // How many times uploads should be retried. Retries have a backoff of 1.5^nRetries * 1000ms, so the first
       // retry will happen after 1000ms, the 2nd after 1500ms, the 3rd after 2250ms, 4th after 3375ms etc.
       // S4QS will throw an exception and exit if the upload fails despite the retries.
       // Optional, will default to 0, meaning S4QS will exit immediately on the first upload error.
       "retries": 5
     },
-    // LRU cache options. Used for message deduplication.
-    // Optional. See https://github.com/isaacs/node-lru-cache for possible options.
-    "LRU": {
-      "max": 1000
-    },
+
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
@@ -182,35 +193,38 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // maximum number of parallel copies to allow. Should be less than or equal to the number of configured tables.
       // Optional, defaults to the number of configured tables.
       "maxParallel": 2,
+
       // Redshift schema to use.
       // Required
       "schema": "myschema",
+
       /*
-       the "table" property is used to build the "base" of the Redshift table name. table can be either a string
-       like "my_table_name" or a regular expression (which must start and end with a /).
+       the "table" property is used to build the Redshift table name. "table" can be either a string
+       like "my_table_name" (if you only have one table) or a regular expression (which must start and end with a /).
        The regular expression is given an S3 URI (s3://bucket-name/some/key), and the first capture group
        will be used as the table name.
 
        When using a regex, periods in the S3 URI are converted to underscores but that's it as far as sanitization for
-       Redshift goes.
-       Feed it weird URIs and weird stuff will probably happen.
+       Redshift goes. Feed it weird URIs and weird stuff will probably happen.
 
        The regex, tablePostfix and tableConfig settings in this example would turn URIs like
        s3://bucketname/whatevs/some.table.name/somefilename.csv.gz
        to time series tables that have names like "some_table_name_devel_ts_1428883200",
-       and the rolling view would have the name "some_table_name_view_devel".
+       and the rolling views would have the name "some_table_name_view_N_devel".
 
        If you use Javascript configuration files, you can specify a function
        for "table". The function must take an S3 URI and output a valid
        Redshift table name.
        */
       "table": "/s3:\/\/.*?\/whatevs\/(.*?)\//i",
+
       // parameterless arguments to COPY. See http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html.
       // Optional.
       "args": [
         "GZIP",
         "TRUNCATECOLUMNS"
       ],
+
       // parameters with arguments.
       // Boolean arguments can be either true/false, "true"/"false" or "on"/"off".
       // Can be overridden easily in NODE_ENV-specific configuration.
@@ -221,24 +235,26 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "TIMEFORMAT": "auto"
       }
     },
-    /*
-     S4QS-RS copies data into time series tables with a configurable time period.
-     A UNION ALL + SELECT view of the time series tables is created, and it is updated every time a new time
-     series table is created. A configurable amount of old tables are retained, and old tables are dropped
-     when needed.
 
-     The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
-     time series table configuration to incoming S3 files.
-
-     See e.g. http://docs.aws.amazon.com/redshift/latest/dg/vacuum-time-series-tables.html for more information
-     on the concept.
-
-     Required.
-     */
+    // "Base" table configuration. Table postfixes are added to the base table name.
+    // The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
+    // table configurations to incoming S3 files.
+    // Required.
     "tableConfig": {
+
       // monolithic (i.e. no time series tables used) table configuration for the base table some_table_name.
       // The base table name is extracted from S3 URI by regex in the "table" property above)
       "some_table_name": {
+        // SQS queue parameters for this specific table.
+        // The queue **must** contain only events for this specific table.
+        // You can also override SQS options like WaitTimeSeconds per base table.
+        // Required.
+        "SQS": {
+          "params": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
+          }
+        },
+
         // table-specific copyParams. Note that you CAN NOT override the "table" parameter.
         // Optional
         "copyParams": {
@@ -246,10 +262,10 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
             "JSON": "s3://bukkit/jsonpaths_for_some_table_name.json"
           }
         },
+
         // which column to use as time stamp when e.g. dropping rows that arrived too late, or when deleting old rows
         "timestampCol": "ts",
-        // delete rows older than this. Only useful when using monolithic tables (i.e. not time series tables like below)
-        "deleteOlderThan": "90 day",
+
         // deduplication configuration. If these settings are present, S4QS-RS will deduplicate data
         // using a staging table before copying it to the main table. Deduplication is done based on the PRIMARY KEY
         // column, which must be defined in the "columns" array (see below) and NOT in the tableAttrs.
@@ -264,48 +280,76 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
           // won't change.
           // Required
           "dropOlderThan": "45 minutes",
+
           // how long IDs should be kept in the deduplication table.
           // Duplicate rows will be moved to the table some_table_name_errors.
           // Required
           "dedupSetAge": "2 hours"
         },
+
         // Array of column definitions.
         // Required.
         "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) PRIMARY KEY ENCODE LZO", "..."],
+
         // Array of table attributes.
         // Required.
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
-      // base table with time series table configuration
+
+      // base table with time series table configuration.
+      // When using time series tables, S4QS-RS copies data into time series tables with a configurable time period.
+      // Views of the time series tables can be created, and they are updated every time a new table is created.
+      // A configurable amount of old tables are retained, and old tables are dropped when needed.
       "other_table_name": {
-        // overridden SQS configuration
         "SQS": {
           "params": {
             "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
           }
         },
+
         // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
         // created per every day. Omit this, maxTables and tablesInView to copy to a single, monolithic table.
         // Optional.
         "period": 86400,
+
         // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first.
         // Optional (see above)
         "maxTables": 30,
+
         // How many rolling views to create, and how many tables each view
         // should contain.
-        // The example would create 4 views with lengths 1, 5, 15 and 30.
+        // The example would create 4 views with 1, 5, 15 and 30 time series tables.
         // Can be either an array or a single number.
         // Optional. Will default to maxTables if omitted.
         "tablesInView": [1, 5, 15, 30],
+
         "deduplication": {
           "dropOlderThan": "30 minutes",
           "dedupSetAge": "1 hours"
         },
+
         "columns": ["AHOY INT PRIMARY KEY NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA", "..."],
         "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
       }
     }
-  }
+  },
+
+  // send metrics to statsd using given prefix.
+  // Optional.
+  "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
+
+  // send copy metrics to Zabbix. zabbix_sender must be installed. Uses the zabbix-sender NPM package,
+  // and this key is passed to the constructor.
+  // The keys use the exact same format as statsd keys, including the prefix.
+  // With the configuration in this file, keys would look like
+  //
+  // s4qs.s3-to-rs.connAndCopy.base_table_name.total.time
+  //
+  // with each base table having its own key. The time reported is the total time in milliseconds taken
+  // to COPY and (if enabled) deduplicate data.
+  //
+  // Optional.
+  "zabbix": {"server": "zabbix.example.com", "hostname": "s4qs-rs"},
 }
 ```
 
@@ -329,7 +373,7 @@ would map `$RS_CONN` to `S3Copier.Redshift.connStr`. Values set with environment
 ## Running S4QS-RS
 After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs` or `DEBUG=sq4s-rs:* s4qs-rs` to see debugging information.
 
-S4QS-RS traps `SIGTERM` and `SIGINT` to make sure in-flight copies complete and the corresponding SQS messages and S3 manifests are deleted. This may take several minutes depending on what you're copying, so don't be alarmed if nothing seems to happen.
+S4QS-RS traps `SIGTERM` and `SIGINT`, and aborts in-flight transactions when terminated.
 
 ## Errata
 
