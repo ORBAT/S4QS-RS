@@ -78,18 +78,16 @@ var s3c = new S3Copier(Promise.promisifyAll(pg), s3, rs, copierOpts);
 
 
 function cleanup(sig) {
-  return function() {
+  return () => {
     console.error("\nsignal", sig +". Exiting. This may take a while.");
-    s3c.stop().done(function() {
+    s3c.stop().done(() => {
       console.error("Cleanup done");
       process.exit(0);
     });
   };
 }
 
-_.each(['SIGTERM', 'SIGINT'], function(sig) {
-  process.on(sig, cleanup(sig));
-});
+_.each(['SIGTERM', 'SIGINT'], sig => process.on(sig, cleanup(sig)));
 
 if(config.has("HTTPPort")) {
   debug("Starting HTTP server on port " + config.get('HTTPPort'));
@@ -98,7 +96,15 @@ if(config.has("HTTPPort")) {
 
 s3c.start();
 
-process.on("unhandledRejection", function(reason, promise) {
+
+process.on("message", (msg) => {
+  if(process.connected) {
+    debug(`Got ping ${msg.ping}`);
+    process.send({pong: msg.ping});
+  }
+});
+
+process.on("unhandledRejection", (reason, promise) => {
   error("Exiting due to possibly unhandled rejection with reason " + reason);
   error(reason.stack);
   process.exit(1);
