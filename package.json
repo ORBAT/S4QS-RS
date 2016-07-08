@@ -26,7 +26,7 @@
     "express": "4.x",
     "highland": "2.x",
     "lodash": "3.x",
-    "lru-cache": "2.5.x",
+    "lru-cache": "4.0.1",
     "node-etcd": "^4.2.1",
     "pg": "4.x",
     "promise-pauser": "^1.0.0",
