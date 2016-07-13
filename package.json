@@ -24,7 +24,7 @@
     "config": "1.x",
     "debug": "2.x",
     "express": "4.x",
-    "highland": "git+ssh://git@github.com:caolan/highland.git#28e630ff08a8e3a94293e891eb7a9398c30294ac",
+    "highland": "git://git@github.com:caolan/highland.git#28e630ff08a8e3a94293e891eb7a9398c30294ac",
     "lodash": "3.x",
     "lru-cache": "4.0.1",
     "node-etcd": "^4.2.1",
