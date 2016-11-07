@@ -24,7 +24,7 @@
     "config": "1.x",
     "debug": "2.x",
     "express": "4.x",
-    "highland": "caolan/highland#0cd59e9a810ab9472f5f00dd752e09980de5989d",
+    "highland": "2.10.1",
     "lodash": "3.x",
     "lru-cache": "4.0.1",
     "node-etcd": "^4.2.1",
