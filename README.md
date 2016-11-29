@@ -76,8 +76,12 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
         // how often the visibility timeout should be updated. Defaults to 100 seconds.
         // Optional.
-        "visibilityUpdateIntervalSeconds": 100
-      },
+        "visibilityUpdateIntervalSeconds": 100,
+
+        // how many failures to allow when updating a message's visibility timeout. After this many tries, a message's
+        // timeout will no longer be updated. Defaults to 3.
+        "maxFailures": 3
+      }
     },
 
     // SQS region.
@@ -190,10 +194,6 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // Can be overridden in tableConfig (see below)
     // Required.
     "copyParams": {
-      // maximum number of parallel copies to allow. Should be less than or equal to the number of configured tables.
-      // Optional, defaults to the number of configured tables.
-      "maxParallel": 2,
-
       // Redshift schema to use.
       // Required
       "schema": "myschema",
@@ -243,7 +243,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     "tableConfig": {
 
       // monolithic (i.e. no time series tables used) table configuration for the base table some_table_name.
-      // The base table name is extracted from S3 URI by regex in the "table" property above)
+      // The base table name is extracted from S3 URIs by the regex in the "table" property above
       "some_table_name": {
         // SQS queue parameters for this specific table.
         // The queue **must** contain only events for this specific table.
@@ -251,11 +251,11 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // Required.
         "SQS": {
           "params": {
-            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name"
           }
         },
 
-        // table-specific copyParams. Note that you CAN NOT override the "table" parameter.
+        // table-specific copyParams overrides.
         // Optional
         "copyParams": {
           "withParams": {
@@ -349,7 +349,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
   // to COPY and (if enabled) deduplicate data.
   //
   // Optional.
-  "zabbix": {"server": "zabbix.example.com", "hostname": "s4qs-rs"},
+  "zabbix": {"server": "zabbix.example.com", "hostname": "s4qs-rs"}
 }
 ```
 
