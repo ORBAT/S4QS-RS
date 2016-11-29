@@ -5,33 +5,29 @@
  */
 
 //var p = require('./lib/sqs-poller');
+var _ = require('lodash');
 var aws = require('aws-sdk');
+var config = require('config');
+var pg = require('pg');
+var Promise = require('bluebird');
+var util = require('util');
+
 var s3rs = require('./lib/s3-to-rs');
 var rest = require('./lib/rest');
 var ut = require('./lib/utils');
 var S3Copier = s3rs.S3Copier;
-var Promise = require('bluebird');
-var pg = require('pg');
+
+var inspect = _.partialRight(util.inspect, {depth: 10});
+
+var logOpts = config.has("logging") ? config.get("logging") : {};
+var logger = require("./lib/logging").initLogging(logOpts).getLogger({module: "app"});
 
 Promise.promisifyAll(pg);
 
 pg.defaults.poolSize = 3;
 pg.defaults.poolIdleTimeout = 120;
 
-var _ = require('lodash');
-var config = require('config');
-var dbg = require('debug');
-var _enabledOrig = dbg.enabled; // NOTE: temporarily force debug logging on
-dbg.enabled = function(ns) {
-  if(/s4qs/.test(ns)) return true; else return _enabledOrig(ns);
-};
-var debug = dbg('s4qs-rs:s4qs-app');
-var error = dbg('s4qs-rs:s4qs-app:error');
 
-error.log = console.error;
-
-var util = require('util');
-var inspect = _.partialRight(util.inspect, {depth: 10});
 
 if(!process.env.NODE_ENV) { // default to development
   process.env.NODE_ENV = "development";
@@ -44,7 +40,7 @@ function creds(keyId, key) {
   return "aws_access_key_id=" + keyId + ";aws_secret_access_key=" + key;
 }
 
-debug("Started with env " + process.env.NODE_ENV);
+logger.info({NODE_ENV: process.env.NODE_ENV}, "Started");
 
 var credentials = aws.config.credentials;
 
@@ -69,19 +65,16 @@ if(!_.get(copierOpts, "copyParams.withParams")) _.set(copierOpts, "copyParams.wi
 copierOpts.copyParams.withParams.CREDENTIALS = creds(credentials.accessKeyId, credentials.secretAccessKey);
 copierOpts.statsd = statsdOpts;
 copierOpts.zabbix = zabbixOpts;
-
-/* //////// TODO NOTE TESTING HAX HAX
- var tu = require('./test/test-utils');
- var s3c = new S3Copier(Promise.promisifyAll(new tu.FakePg(null, null, () => {})), s3, rs, copierOpts);*/
+copierOpts.logger = logger;
 
 var s3c = new S3Copier(Promise.promisifyAll(pg), s3, rs, copierOpts);
 
 
 function cleanup(sig) {
   return () => {
-    console.error("\nsignal", sig +". Exiting. This may take a while.");
+    logger.info({signal: sig}, "Exiting. This may take a while.");
     s3c.stop().done(() => {
-      console.error("Cleanup done");
+      logger.info("Cleanup done");
       process.exit(0);
     });
   };
@@ -89,24 +82,18 @@ function cleanup(sig) {
 
 _.each(['SIGTERM', 'SIGINT'], sig => process.on(sig, cleanup(sig)));
 
-if(config.has("HTTPPort")) {
-  debug("Starting HTTP server on port " + config.get('HTTPPort'));
-  rest.app.listen(config.get("HTTPPort"));
-}
-
 s3c.start();
 
 
 process.on("message", (msg) => {
   if(process.connected) {
-    debug(`Got ping ${msg.ping}`);
+    logger.debug({msg: msg}, "Got ping");
     process.send({pong: msg.ping});
   }
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  error("Exiting due to possibly unhandled rejection with reason " + reason);
-  error(reason.stack);
+  logger.fatal({err: reason}, "Exiting due to possibly unhandled rejection");
   process.exit(1);
 });
 
@@ -115,7 +102,7 @@ s3c.errorStream.fork()
     push(null, err);
   })
   .each(function (err) {
-    error("Got an error we can't recover from: " + err + "\n" + err.stack);
+    logger.fatal({err: err}, "Got an error we can't recover from");
     process.exit(1);
   });
 
