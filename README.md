@@ -3,7 +3,7 @@ S4QS-RS reads S3 object creation events from SQS queues and copies data from S3 
 
 See the [S3 documentation](http://docs.aws.amazon.com/AmazonS3/latest/UG/SettingBucketNotifications.html) for more information about setting up the object creation events. Note that if you publish the events to SNS and then subscribe your SQS queue to the SNS topic, you **must** set the "Raw Message Delivery" subscription attribute to "**True**".
 
-Data can be either copied into monolithic tables, or time series tables with configurable rotation periods and retention, and multiple rolling views with different periods. View creation is done so that adding or removing columns from time series tables doesn't break the view: missing columns are filled in with `NULL as [missing_col_name]` in the view queries.
+Data is copied into monolithic tables. Retention and cleanup of these tables is left up to external tools; S4QS does **not** remove old rows, or vacuum/analyze the tables.
 
 More details about how S4QS-RS works in the [configuration section](#configuration).
 
@@ -110,7 +110,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
       // Required.
       "key": "/s4qs/all_ok",
 
-      // String to match the etcd key against (CASE SENSITIVE.) If the key contains anything but this OR is not present,
+      // String to match the etcd key against (CASE SENSITIVE.) If the key contains anything but this **or** is not present,
       // S4QS will stop updating the finalization time for all tables.
       // Required.
       "matchAgainst": "OK"
@@ -209,8 +209,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
        The regex, tablePostfix and tableConfig settings in this example would turn URIs like
        s3://bucketname/whatevs/some.table.name/somefilename.csv.gz
-       to time series tables that have names like "some_table_name_devel_ts_1428883200",
-       and the rolling views would have the name "some_table_name_view_N_devel".
+       to a table with the name "some_table_name_devel".
 
        If you use Javascript configuration files, you can specify a function
        for "table". The function must take an S3 URI and output a valid
@@ -242,7 +241,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
     // Required.
     "tableConfig": {
 
-      // monolithic (i.e. no time series tables used) table configuration for the base table some_table_name.
+      // table configuration for the base table some_table_name.
       // The base table name is extracted from S3 URIs by the regex in the "table" property above
       "some_table_name": {
         // SQS queue parameters for this specific table.
@@ -251,7 +250,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // Required.
         "SQS": {
           "params": {
-            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name"
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/queue-name"
           }
         },
 
@@ -259,6 +258,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         // Optional
         "copyParams": {
           "withParams": {
+            // use this specific JSONPaths file for this table
             "JSON": "s3://bukkit/jsonpaths_for_some_table_name.json"
           }
         },
@@ -296,10 +296,7 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
         "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
       },
 
-      // base table with time series table configuration.
-      // When using time series tables, S4QS-RS copies data into time series tables with a configurable time period.
-      // Views of the time series tables can be created, and they are updated every time a new table is created.
-      // A configurable amount of old tables are retained, and old tables are dropped when needed.
+      // another base table
       "other_table_name": {
         "SQS": {
           "params": {
@@ -307,21 +304,14 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
           }
         },
 
-        // Time series table period in seconds. A value of e.g. 86400 would mean that a new time series table is
-        // created per every day. Omit this, maxTables and tablesInView to copy to a single, monolithic table.
-        // Optional.
-        "period": 86400,
-
-        // Keep a maximum of maxTables time series tables. Oldest tables will be deleted first.
-        // Optional (see above)
-        "maxTables": 30,
-
-        // How many rolling views to create, and how many tables each view
-        // should contain.
-        // The example would create 4 views with 1, 5, 15 and 30 time series tables.
-        // Can be either an array or a single number.
-        // Optional. Will default to maxTables if omitted.
-        "tablesInView": [1, 5, 15, 30],
+        // table-specific copyParams overrides.
+        // Optional
+        "copyParams": {
+          "withParams": {
+            // use this specific JSONPaths file for this table
+            "JSON": "s3://bukkit/jsonpaths_for_other_table_name.json"
+          }
+        },
 
         "deduplication": {
           "dropOlderThan": "30 minutes",
