@@ -54,6 +54,7 @@
       // etcd key to use.
       // Required.
       "key": "/s4qs/all_ok",
+
       // String to match the etcd key against (CASE SENSITIVE.) If the key contains anything but this **or** is not present,
       // S4QS will stop updating the finalization time for all tables.
       // Required.
@@ -115,21 +116,25 @@
       // Bucket to upload manifests to.
       // Required.
       "bucket": "manifest-bucket",
+
       // Prefix for manifest keys. "In-flight" manifests are stored in bucket/prefix/inflight/YYYY-MM-DD/manifestFileName.json.
       // If the Redshift COPY is successful, manifests are moved to bucket/prefix/successful/, and if the COPY fails they are
       // moved to bucket/prefix/failed/
       // Required.
       "prefix": "s4qs/manifests/",
+
       // How many times uploads should be retried. Retries have a backoff of 1.5^nRetries * 1000ms, so the first
       // retry will happen after 1000ms, the 2nd after 1500ms, the 3rd after 2250ms, 4th after 3375ms etc.
       // S4QS will throw an exception and exit if the upload fails despite the retries.
       // Optional, will default to 0, meaning S4QS will exit immediately on the first upload error.
       "retries": 5
     },
+
     // this will be added to the end of the table name when doing COPYs.
     // Useful for having different tables for different NODE_ENVs.
     // Optional.
     "tablePostfix": "_devel",
+
     // parameters for Redshift's COPY query.
     // Can be overridden in tableConfig (see below)
     // Required.
@@ -137,6 +142,7 @@
       // Redshift schema to use.
       // Required
       "schema": "myschema",
+
       /*
        the "table" property is used to build the Redshift table name. "table" can be either a string
        like "my_table_name" (if you only have one table) or a regular expression (which must start and end with a /).
@@ -155,12 +161,14 @@
        Redshift table name.
        */
       "table": "/s3:\/\/.*?\/whatevs\/(.*?)\//i",
+
       // parameterless arguments to COPY. See http://docs.aws.amazon.com/redshift/latest/dg/r_COPY.html.
       // Optional.
       "args": [
         "GZIP",
         "TRUNCATECOLUMNS"
       ],
+
       // parameters with arguments.
       // Boolean arguments can be either true/false, "true"/"false" or "on"/"off".
       // Can be overridden easily in NODE_ENV-specific configuration.
@@ -170,8 +178,97 @@
         "MAXERROR": 100,
         "TIMEFORMAT": "auto"
       }
+    },
+
+    // "Base" table configuration. Table postfixes are added to the base table name.
+    // The keys of tableConfig should match table names produced by copyParams.table. The keys are used to match
+    // table configurations to incoming S3 files.
+    // Required.
+    "tableConfig": {
+
+      // table configuration for the base table some_table_name.
+      // The base table name is extracted from S3 URIs by the regex in the "table" property above
+      "some_table_name": {
+        // SQS queue parameters for this specific table.
+        // The queue **must** contain only events for this specific table.
+        // You can also override SQS options like WaitTimeSeconds per base table.
+        // Required.
+        "SQS": {
+          "params": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/queue-name"
+          }
+        },
+
+        // table-specific copyParams overrides.
+        // Optional
+        "copyParams": {
+          "withParams": {
+            // use this specific JSONPaths file for this table
+            "JSON": "s3://bukkit/jsonpaths_for_some_table_name.json"
+          }
+        },
+
+        // which column to use as time stamp when e.g. dropping rows that arrived too late, or when deleting old rows
+        "timestampCol": "ts",
+
+        // deduplication configuration. If these settings are present, S4QS-RS will deduplicate data
+        // using a staging table before copying it to the main table. Deduplication is done based on the PRIMARY KEY
+        // column, which must be defined in the "columns" array (see below) and NOT in the tableAttrs.
+        // The metadata tables have the prefixes _errors (for either duplicate rows or rows that were too old),
+        // _dedup (for primary keys to dedup against. See below), and _tracking (for keeping track of the newest
+        // timestamp and latest finalization time. See below.)
+        // Optional.
+        "deduplication": {
+          // only accept rows that have a timestamp that is at most this much older than the newest previous row.
+          // Old rows will be moved to the table some_table_name_errors.
+          // In practice, this is the finalization time of the data: after dropOlderThan, the data in the table
+          // won't change.
+          // Required
+          "dropOlderThan": "45 minutes",
+
+          // how long IDs should be kept in the deduplication table.
+          // Duplicate rows will be moved to the table some_table_name_errors.
+          // Required
+          "dedupSetAge": "2 hours"
+        },
+
+        // Array of column definitions.
+        // Required.
+        "columns": ["SOURCE INT NOT NULL ENCODE BYTEDICT",  "ID CHAR(24) PRIMARY KEY ENCODE LZO", "..."],
+
+        // Array of table attributes.
+        // Required.
+        "tableAttrs": ["DISTKEY(ID)", "SORTKEY(ID)"]
+      },
+
+      // another base table
+      "other_table_name": {
+        "SQS": {
+          "params": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/another-queue-name",
+          }
+        },
+
+        // table-specific copyParams overrides.
+        // Optional
+        "copyParams": {
+          "withParams": {
+            // use this specific JSONPaths file for this table
+            "JSON": "s3://bukkit/jsonpaths_for_other_table_name.json"
+          }
+        },
+
+        "deduplication": {
+          "dropOlderThan": "30 minutes",
+          "dedupSetAge": "1 hours"
+        },
+
+        "columns": ["AHOY INT PRIMARY KEY NOT NULL ENCODE LZO",  "DERR INT ENCODE DELTA", "..."],
+        "tableAttrs": ["DISTKEY(AHOY)", "SORTKEY(DERR)"]
+      }
     }
   },
+
   // send metrics to statsd using given prefix.
   // Optional.
   "statsd": {"prefix": "s4qs.", "host": "statsd-server", "port": 1234},
