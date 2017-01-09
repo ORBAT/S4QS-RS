@@ -54,6 +54,21 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 
 ```javascript
 {
+  // Logging options
+  // Optional.
+  "logging": {
+    // you can have multiple streams, but currently only the stderr and stdout output streams are supported.
+    // Optional. Defaults to a minimum level of "trace" and "stdout" output
+    "streams": [
+          {
+            // minimum level.
+            "level": "trace",
+            // where to output; "stdout" or "stderr"
+            "stream": "stdout"
+          }
+        ]
+  },
+
   // SQS poller options.
   // Can be overridden in tableConfig (see below)
   // Optional.
@@ -349,8 +364,6 @@ AWS credentials are loaded by the Node AWS SDK. See [the SDK's documentation](ht
 ```
 
 ## Environment variables
-S4QS-RS uses the [debug NPM package](npmjs.org/package/debug) for outputting debug messages to stdout and error messages to stderr. To see **any** error messages, you **must** run S4QS-RS with the env `DEBUG=s4qs-rs:*:error`. To see debug messages, run with `DEBUG=s4qs-rs:*` See debug's documentation for more information.
-
 You can [map environment variables to configuration parameters](https://github.com/lorenwest/node-config/wiki/Environment-Variables#custom-environment-variables) by creating a file with the name `./config/custom-environment-variables.json`. For example
 
 ```json
@@ -365,10 +378,20 @@ You can [map environment variables to configuration parameters](https://github.c
 
 would map `$RS_CONN` to `S3Copier.Redshift.connStr`. Values set with environment variables always override configuration file values.
 
-## Running S4QS-RS
-After setting up your configuration, you can run S4QS-RS with `DEBUG=*:error s4qs-rs` or `DEBUG=sq4s-rs:* s4qs-rs` to see debugging information.
+## Logging
+S4QS-RS uses [bunyan](https://github.com/trentm/node-bunyan) for logging. The bundled pretty-printer is good for looking at log output:
 
-S4QS-RS traps `SIGTERM` and `SIGINT`, and aborts in-flight transactions when terminated.
+```
+> npm i -g bunyan
+> s4qs-rs|bunyan -oshort
+```
+
+See example config for information on how to configure logging.
+
+## Running S4QS-RS
+After setting up your configuration, you can run S4QS-RS with `s4qs-rs`. Installing bunyan's pretty-printer is recommended (see [above](#logging))
+
+S4QS-RS traps `SIGTERM` and `SIGINT` and aborts in-flight transactions when terminated.
 
 ## Errata
 
