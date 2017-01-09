@@ -45,7 +45,7 @@ logger.info({NODE_ENV: process.env.NODE_ENV}, "Started");
 var credentials = aws.config.credentials;
 
 if(!credentials) {
-  console.error("No credentials found?");
+  logger.error("No AWS credentials found?");
   process.exit(1);
 }
 
