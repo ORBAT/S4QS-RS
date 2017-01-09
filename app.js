@@ -94,7 +94,7 @@ process.on("message", (msg) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   logger.fatal({err: reason}, "Exiting due to possibly unhandled rejection");
-  process.exit(1);
+  process.exit(2);
 });
 
 s3c.errorStream.fork()
@@ -103,6 +103,6 @@ s3c.errorStream.fork()
   })
   .each(function (err) {
     logger.fatal({err: err}, "Got an error we can't recover from");
-    process.exit(1);
+    process.exit(3);
   });
 
