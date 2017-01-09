@@ -186,6 +186,11 @@
     // Required.
     "tableConfig": {
 
+      // if this is set to true, S4QS-RS will check existing tables and their columns against what's in the
+      // configuration, and either drop columns if they've been removed from the config, or add columns if they are
+      // in the configuration but not in the database.
+      "enableSchemaEvolution": true,
+
       // table configuration for the base table some_table_name.
       // The base table name is extracted from S3 URIs by the regex in the "table" property above
       "some_table_name": {
